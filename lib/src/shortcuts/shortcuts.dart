@@ -50,7 +50,8 @@ class ShortcutsView extends HookConsumerWidget {
           Button95(
             child: const Text('Účto'),
             onTap: () {
-              launchUrlString("https://ib.fio.cz/ib/login");
+              launchUrlString(
+                  "https://ib.fio.cz/ib/fio/page/nastenka-vsechny-ucty");
               launchUrlString(
                   "https://app.fakturoid.cz/raindeadcompany/dashboard");
             },
@@ -59,6 +60,23 @@ class ShortcutsView extends HookConsumerWidget {
             child: const Text('Scan'),
             onTap: () =>
                 launchUrlString("https://v4.camscanner.com/file/manager"),
+          ),
+          Button95(
+            child: const Text('Status'),
+            onTap: () {
+              // Roughly 80 years in weeks.
+              const weeksInLife = 4000;
+              final week =
+                  DateTime.now().difference(DateTime(1982, 5, 9)).inDays ~/ 7;
+
+              Process.run('osascript', [
+                '-e',
+                'say "Year progress is at 78%. '
+                    'Out of $weeksInLife weeks of your life, '
+                    'this is week number $week. '
+                    'Expect same weather tomorrow."',
+              ]);
+            },
           ),
         ],
       ),
