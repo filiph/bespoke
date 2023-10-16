@@ -1,8 +1,10 @@
+import 'package:bespoke/src/ai/ai_area.dart';
 import 'package:bespoke/src/glyphs/glyphs.dart';
 import 'package:bespoke/src/main_area.dart';
 import 'package:bespoke/src/shortcuts/shortcuts.dart';
 import 'package:bespoke/src/status_line.dart';
 import 'package:flutter/material.dart' hide Tab;
+import 'package:flutter/services.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:macos_window_utils/window_manipulator.dart';
@@ -45,19 +47,23 @@ class MyHomePage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold95(
       title: 'Bespoke app',
+      onClosePressed: (context) {
+        SystemNavigator.pop();
+      },
       toolbar: Toolbar95(
         actions: [
           Item95(
             label: 'File',
-            // onTap: (context) {
-            //   print('file');
-            // },
-            menu: Menu95(
-              onItemSelected: (ca) {
-                print(ca);
+            menu: Menu95<String>(
+              onItemSelected: (value) {
+                if (value == 'Exit') {
+                  SystemNavigator.pop();
+                  return;
+                }
               },
               items: [
                 MenuItem95(value: 'Bleh', label: 'Bleh'),
+                MenuItem95(value: 'Exit', label: 'Exit'),
               ],
             ),
           ),
@@ -80,11 +86,7 @@ class MyHomePage extends HookConsumerWidget {
                       ShortcutsView(),
                       Expanded(child: MainArea()),
                       Glyphs(),
-                      Expanded(
-                        child: TextField95(
-                          multiline: true,
-                        ),
-                      ),
+                      Expanded(child: AiArea()),
                     ],
                   ),
                 ),

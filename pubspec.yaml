@@ -11,9 +11,16 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter95: ^1.0.0
+  dart_openai: ^4.0.0
+  flutter95:
+    git:
+      url: git@github.com:filiph/flutter95.git
+      ref: allow-close-button
+  http: ^1.1.0
   macos_window_utils: ^1.4.0
+  meta: ^1.9.1
   open_file_macos: ^0.0.1
+  url_launcher: ^6.1.14
   wnews: ^0.1.2
 
   # Riverpod dependencies.
@@ -21,8 +28,6 @@ dependencies:
   flutter_riverpod: ^2.4.3
   riverpod: ^2.4.3
   riverpod_annotation: ^2.2.0
-  http: ^1.1.0
-  url_launcher: ^6.1.14
 
 dev_dependencies:
   flutter_test:
