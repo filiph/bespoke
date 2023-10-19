@@ -289,11 +289,9 @@ packages:
   flutter95:
     dependency: "direct main"
     description:
-      path: "."
-      ref: allow-close-button
-      resolved-ref: "7414a4fe875455611715c55159de672c5d9b5564"
-      url: "git@github.com:filiph/flutter95.git"
-    source: git
+      path: "../flutter95"
+      relative: true
+    source: path
     version: "1.0.0"
   flutter_hooks:
     dependency: transitive

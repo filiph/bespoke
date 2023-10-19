@@ -14,6 +14,8 @@ TextEditingController textController(TextControllerRef ref) {
   return TextEditingController();
 }
 
+final isProcessingProvider = StateProvider<bool>((ref) => false);
+
 class AiArea extends HookConsumerWidget {
   const AiArea({super.key});
 
@@ -63,7 +65,8 @@ class AiArea extends HookConsumerWidget {
                 onTap: () async {
                   final textController = ref.read(textControllerProvider);
                   final text = textController.text;
-                  // TODO: show "thinking" indicator
+                  // Show "thinking" indicator
+                  ref.read(isProcessingProvider.notifier).state = true;
 
                   final openAi = ref.read(openAiControllerProvider);
                   final paragraphs = text.trim().split('\n\n');
@@ -80,14 +83,14 @@ class AiArea extends HookConsumerWidget {
                               "to you by the user. "
                               "Assume the user is an ESL person. "
                               "Keep the original meaning and tone. "
+                              "Do not make the text more formal than it is. "
                               "Only edit if there are "
                               "wrongly used phrasal verbs, "
                               "or if a particular sentence would be "
                               "written differently by a native speaker. "
-                              "Output only the corrected text. "
-                              "If the input text is exactly as it would be "
-                              "written by a native speaker, then just "
-                              "copy it verbatim.",
+                              "If you find any of the original text acceptable,"
+                              "keep it as is. Don't fix what isn't broken. "
+                              "Output only the corrected text. ",
                         ),
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.user,
@@ -100,16 +103,28 @@ class AiArea extends HookConsumerWidget {
                     editedParagraphs.add(model.choices.first.message.content);
                   }
 
-                  // TODO: stop showing "thinking" indicator
                   textController.text = editedParagraphs.join('\n\n');
                   httpClient.close();
+
+                  // Stop showing "thinking" indicator.
+                  ref.read(isProcessingProvider.notifier).state = false;
                 },
                 child: const Text('English'),
               ),
               SizedBox(height: 4),
               Button95(
-                onTap: () {},
+                onTap: null,
                 child: const Text('→ Markdown'),
+              ),
+              Spacer(),
+              SizedBox(
+                width: 120,
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final isProcessing = ref.watch(isProcessingProvider);
+                    return Progress95(value: isProcessing ? null : 1.0);
+                  },
+                ),
               ),
             ],
           )

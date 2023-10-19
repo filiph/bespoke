@@ -42,10 +42,11 @@ class _StatusLineState extends State<StatusLine> {
         nextYear.difference(startOfYear).inMilliseconds *
         100;
 
-    return Center(
-      child: Text('It is ${now.hour}:${now.minute.toString().padLeft(2, '0')} '
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Text("It's ${now.hour}:${now.minute.toString().padLeft(2, '0')} "
           'on ${now.day}/${now.month}/${now.year}. '
-          'Year progress is at ${percentOfYear.toStringAsFixed(2)}%.'),
+          'Year progress is at ${percentOfYear.toStringAsFixed(2)}%.  ✅'),
     );
   }
 }

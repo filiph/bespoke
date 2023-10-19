@@ -13,9 +13,10 @@ dependencies:
 
   dart_openai: ^4.0.0
   flutter95:
-    git:
-      url: git@github.com:filiph/flutter95.git
-      ref: allow-close-button
+    path: ../flutter95
+#    git:
+#      url: git@github.com:filiph/flutter95.git
+#      ref: allow-close-button
   http: ^1.1.0
   macos_window_utils: ^1.4.0
   meta: ^1.9.1
