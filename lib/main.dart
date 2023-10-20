@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:bespoke/src/ai/ai_area.dart';
 import 'package:bespoke/src/glyphs/glyphs.dart';
 import 'package:bespoke/src/main_area.dart';
@@ -7,9 +9,20 @@ import 'package:flutter/material.dart' hide Tab;
 import 'package:flutter/services.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:macos_window_utils/window_manipulator.dart';
 
 void main() async {
+  Logger.root.level = Level.FINE;
+  Logger.root.onRecord.listen((record) {
+    dev.log(
+      record.message,
+      time: record.time,
+      level: record.level.value,
+      name: record.loggerName,
+    );
+  });
+
   WidgetsFlutterBinding.ensureInitialized();
   await WindowManipulator.initialize();
 
