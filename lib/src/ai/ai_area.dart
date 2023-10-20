@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'ai_area.g.dart';
@@ -17,6 +18,8 @@ TextEditingController textController(TextControllerRef ref) {
 final isProcessingProvider = StateProvider<bool>((ref) => false);
 
 class AiArea extends HookConsumerWidget {
+  static final _log = Logger('AiArena');
+
   const AiArea({super.key});
 
   @override
@@ -65,14 +68,22 @@ class AiArea extends HookConsumerWidget {
                 onTap: () async {
                   final textController = ref.read(textControllerProvider);
                   final text = textController.text;
+
+                  if (text.trim().isEmpty) {
+                    _log.info('Empty input');
+                    return;
+                  }
+
                   // Show "thinking" indicator
                   ref.read(isProcessingProvider.notifier).state = true;
 
                   final openAi = ref.read(openAiControllerProvider);
-                  final paragraphs = text.trim().split('\n\n');
+                  final chunks = _splitIntoChunks(text);
                   final editedParagraphs = <String>[];
                   final httpClient = http.Client();
-                  for (final paragraph in paragraphs) {
+                  _log.info(() => "Sending chunks to AI: "
+                      "${chunks.map(_debugShortenParagraph).toList()}");
+                  for (final paragraph in chunks) {
                     final model = await openAi.instance.chat.create(
                       model: 'gpt-3.5-turbo',
                       messages: [
@@ -122,7 +133,7 @@ class AiArea extends HookConsumerWidget {
                 child: Consumer(
                   builder: (context, ref, _) {
                     final isProcessing = ref.watch(isProcessingProvider);
-                    return Progress95(value: isProcessing ? null : 1.0);
+                    return Progress95(value: isProcessing ? null : 0.0);
                   },
                 ),
               ),
@@ -131,5 +142,47 @@ class AiArea extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  List<String> _splitIntoChunks(String full) {
+    // It is unclear what the max chunk is. It seems to be 2048 tokens,
+    // but tokens can be anything from one ASCII character to (maybe?) several
+    // unicode characters.
+    //
+    // Playing it safe here.
+    const maxPerChunk = 800;
+
+    if (full.length <= maxPerChunk) {
+      return [full];
+    }
+
+    const delimiter = '\n\n';
+    final paragraphs = full.trim().split(delimiter);
+    final chunks = <String>[];
+
+    // String paragraphs into larger chunks up to [maxPerChunk] in size.
+    final buf = StringBuffer();
+    for (final paragraph in paragraphs) {
+      if (buf.length + paragraph.length > maxPerChunk) {
+        chunks.add(buf.toString());
+        buf.clear();
+      }
+      buf.write(paragraph);
+      buf.write(delimiter);
+    }
+
+    if (buf.isNotEmpty) {
+      chunks.add(buf.toString());
+    }
+
+    return chunks;
+  }
+
+  String _debugShortenParagraph(String full) {
+    const maxLength = 10;
+    if (full.length <= maxLength) {
+      return full;
+    }
+    return '${full.substring(0, maxLength - 3)}...';
   }
 }
