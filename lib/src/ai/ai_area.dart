@@ -79,11 +79,11 @@ class AiArea extends HookConsumerWidget {
 
                   final openAi = ref.read(openAiControllerProvider);
                   final chunks = _splitIntoChunks(text);
-                  final editedParagraphs = <String>[];
+                  final editedChunks = <String>[];
                   final httpClient = http.Client();
                   _log.info(() => "Sending chunks to AI: "
                       "${chunks.map(_debugShortenParagraph).toList()}");
-                  for (final paragraph in chunks) {
+                  for (final chunk in chunks) {
                     final model = await openAi.instance.chat.create(
                       model: 'gpt-3.5-turbo',
                       messages: [
@@ -105,16 +105,16 @@ class AiArea extends HookConsumerWidget {
                         ),
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.user,
-                          content: paragraph,
+                          content: chunk,
                         )
                       ],
                       n: 1,
                       client: httpClient,
                     );
-                    editedParagraphs.add(model.choices.first.message.content);
+                    editedChunks.add(model.choices.first.message.content);
                   }
 
-                  textController.text = editedParagraphs.join('\n\n');
+                  textController.text = editedChunks.join('\n\n');
                   httpClient.close();
 
                   // Stop showing "thinking" indicator.
