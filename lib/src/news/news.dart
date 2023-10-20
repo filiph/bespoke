@@ -2,11 +2,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wnews/wnews.dart';
 
 part 'news.g.dart';
+
+final _log = Logger('News');
 
 @riverpod
 Stream<int> slowCounter(SlowCounterRef ref) async* {
@@ -20,7 +23,7 @@ Stream<int> slowCounter(SlowCounterRef ref) async* {
 @riverpod
 Future<List<NewsItem>> fetchNews(FetchNewsRef ref) async {
   ref.watch(slowCounterProvider);
-  print('fetching news');
+  _log.info('fetching news');
   final response = await http.get(
     Uri.parse('https://en.wikipedia.org/wiki/Main_Page'),
   );
