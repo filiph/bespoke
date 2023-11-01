@@ -62,6 +62,10 @@ class ShortcutsView extends HookConsumerWidget {
                 launchUrlString("https://v4.camscanner.com/file/manager"),
           ),
           Button95(
+            child: const Text('Napkin'),
+            onTap: () => launchUrlString("https://filiph.github.io/napkin/"),
+          ),
+          Button95(
             child: const Text('Status'),
             onTap: () {
               // Roughly 80 years in weeks.
