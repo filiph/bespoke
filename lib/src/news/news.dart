@@ -24,9 +24,8 @@ Stream<int> slowCounter(SlowCounterRef ref) async* {
 Future<List<NewsItem>> fetchNews(FetchNewsRef ref) async {
   ref.watch(slowCounterProvider);
   _log.info('fetching news');
-  final response = await http.get(
-    Uri.parse('https://en.wikipedia.org/wiki/Main_Page'),
-  );
+  final uri = getEndpointUri(language: 'en');
+  final response = await http.get(uri);
   return extractNews(response.body);
 }
 
