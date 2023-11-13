@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wnews/wnews.dart';
 
 part 'news.g.dart';
@@ -55,8 +55,7 @@ class NewsView extends HookConsumerWidget {
                         cursor: SystemMouseCursors.click,
                         child: GestureDetector(
                           onTap: () {
-                            launchUrlString(
-                                'https://en.wikipedia.org${item.link!}');
+                            launchUrl(item.link!);
                           },
                           child: Text(
                             'Link',
