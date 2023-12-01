@@ -23,7 +23,7 @@ dependencies:
   meta: ^1.9.1
   open_file_macos: ^0.0.1
   url_launcher: ^6.1.14
-  wnews: ^0.2.1
+  wnews: ^0.2.2
 
   # Riverpod dependencies.
   hooks_riverpod: ^2.4.3

@@ -23,6 +23,7 @@ class Glyphs extends StatelessWidget {
           _Glyph('←'),
           _Glyph('→'),
           _Glyph('✔️'),
+          _Glyph(' '),
           _Glyph(r'¯\_(ツ)_/¯'),
         ],
       ),

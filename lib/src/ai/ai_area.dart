@@ -101,7 +101,9 @@ class AiArea extends HookConsumerWidget {
                               "written differently by a native speaker. "
                               "If you find any of the original text acceptable,"
                               "keep it as is. Don't fix what isn't broken. "
-                              "Output only the corrected text. ",
+                              "If the input text contains Markdown or HTML "
+                              "formatting, keep it. "
+                              "Output only the corrected text. ", // TODO: add examples
                         ),
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.user,
