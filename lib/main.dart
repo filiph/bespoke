@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:bespoke/src/ai/ai_area.dart';
 import 'package:bespoke/src/glyphs/glyphs.dart';
@@ -81,6 +82,49 @@ class MyHomePage extends HookConsumerWidget {
             ),
           ),
           Item95(label: 'Edit'),
+          Item95(
+            label: 'Blog',
+            menu: Menu95<String>(
+              onItemSelected: (value) async {
+                if (value == 'Serve') {
+                  final result = Process.run('osascript', [
+                    '-e',
+                    'tell app "Terminal" to do script '
+                        '"cd /Users/filiph/dev/filiphnet && make serve"',
+                  ]);
+                  // final result = Process.run('osascript', [
+                  //   '-e',
+                  //   'do shell script '
+                  //       '"cd /Users/filiph/dev/filiphnet && make deploy"'
+                  // ]);
+
+                  var r = await result;
+                  debugPrint(r.stdout);
+                  return;
+                }
+                if (value == 'Publish') {
+                  final result = Process.run('osascript', [
+                    '-e',
+                    'tell app "Terminal" to do script '
+                        '"cd /Users/filiph/dev/filiphnet && make deploy"',
+                  ]);
+                  // final result = Process.run('osascript', [
+                  //   '-e',
+                  //   'do shell script '
+                  //       '"cd /Users/filiph/dev/filiphnet && make deploy"'
+                  // ]);
+
+                  var r = await result;
+                  debugPrint(r.stdout);
+                  return;
+                }
+              },
+              items: [
+                MenuItem95(value: 'Serve', label: 'Serve'),
+                MenuItem95(value: 'Publish', label: 'Publish'),
+              ],
+            ),
+          ),
           Item95(label: 'Help'),
         ],
       ),
