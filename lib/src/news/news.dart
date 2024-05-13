@@ -72,7 +72,7 @@ class NewsView extends HookConsumerWidget {
             ],
           ),
         AsyncLoading(hasValue: false) => const Text('Loading...'),
-        AsyncError(:final error) => Text('Error: $error'),
+        AsyncError(:final error) => ErrorWidget('Error: $error'),
         AsyncValue<List<NewsItem>>() => Text('what?'),
       },
     );

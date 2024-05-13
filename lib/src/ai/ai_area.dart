@@ -94,7 +94,8 @@ class AiArea extends HookConsumerWidget {
                               "to you by the user. "
                               "Assume the user is an ESL person. "
                               "Keep the original meaning and tone. "
-                              "Do not make the text more formal than it is. "
+                              "Do NOT make the text more formal than it is. "
+                              "Keep it casual, almost as spoken text. "
                               "Only edit if there are "
                               "wrongly used phrasal verbs, "
                               "or if a particular sentence would be "
@@ -103,7 +104,7 @@ class AiArea extends HookConsumerWidget {
                               "keep it as is. Don't fix what isn't broken. "
                               "If the input text contains Markdown or HTML "
                               "formatting, keep it. "
-                              "Output only the corrected text. ", // TODO: add examples
+                              "Output only the corrected text.", // TODO: add examples
                         ),
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.user,
