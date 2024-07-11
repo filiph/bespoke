@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bespoke/src/ai/open_ai.dart';
+import 'package:bespoke/src/comics/count_dialogue.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -154,14 +155,20 @@ class AiArea extends HookConsumerWidget {
                   _log.fine('Counting words in input of length '
                       '${text.length}');
 
-                  final count = _countDialogueWords(text);
+                  final dialogue = extractDialogue(text);
 
-                  _log.info("Words in the dialogue: $count");
+                  _log.info("Words in the dialogue: ${dialogue.wordCount}");
 
                   unawaited(showDialog95(
                     context: context,
                     title: 'Dialog word count',
-                    message: "Words found in the dialogue: $count.",
+                    message:
+                        "Words found in the dialogue: ${dialogue.wordCount}.\n"
+                        "Bubbles: ${dialogue.bubbleCount}.\n"
+                        "\n"
+                        "That's "
+                        "${dialogue.wordsPerBubbleAverage.toStringAsFixed(2)}"
+                        " words per bubble on average.",
                   ));
                 },
                 child: const Text('Count dialogue'),
@@ -181,30 +188,6 @@ class AiArea extends HookConsumerWidget {
         ],
       ),
     );
-  }
-
-  static int _countDialogueWords(String full) {
-    const delimiter = '\n';
-    final paragraphs = full.trim().split(delimiter).map((e) => e.trim());
-
-    final dialoguePattern =
-        RegExp(r'^([A-ZĚŠČŘŽÝÁÍÉÚŮÓŇŤ ]+)(\s\(.+?\))?:(.+)$');
-
-    var count = 0;
-    for (final paragraph in paragraphs) {
-      final match = dialoguePattern.firstMatch(paragraph);
-      if (match == null) {
-        continue;
-      }
-      final speaker = match.group(1)!.trim();
-      if (speaker == 'SFX') {
-        // We don't count SFX into dialogue.
-        continue;
-      }
-      final dialogue = match.group(3)!.trim();
-      count += dialogue.split(' ').length;
-    }
-    return count;
   }
 
   List<String> _splitIntoChunks(String full) {
