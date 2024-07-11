@@ -157,19 +157,36 @@ class AiArea extends HookConsumerWidget {
 
                   final dialogue = extractDialogue(text);
 
-                  _log.info("Words in the dialogue: ${dialogue.wordCount}");
+                  _log.info("Words in the dialogue: ${dialogue.words.length}");
+
+                  final summary = "Slov: ${dialogue.words.length}.\n"
+                      "Bublin: ${dialogue.bubbles.length}.\n"
+                      "Panelů: ${dialogue.panels.length}.\n"
+                      "\n"
+                      "To je v průměru "
+                      "${dialogue.wordsPerBubbleAverage.toStringAsFixed(1)}"
+                      " slov na bublinu "
+                      "a "
+                      "${dialogue.wordsPerPanelAverage.toStringAsFixed(1)}"
+                      " slov na panel.\n"
+                      "\n"
+                      "Je tu ${dialogue.countPanelsWithBubbleCount(0)} "
+                      "panelů bez bubliny, "
+                      "${dialogue.countPanelsWithBubbleCount(1)} "
+                      "panelů s jednou bublinou, "
+                      "${dialogue.countPanelsWithBubbleCount(2)} "
+                      "panelů se dvěma bublinama. "
+                      "V průměru "
+                      "${dialogue.bubblesPerPanelAverage.toStringAsFixed(1)}"
+                      " bublin na panel.";
 
                   unawaited(showDialog95(
                     context: context,
                     title: 'Dialog word count',
-                    message:
-                        "Words found in the dialogue: ${dialogue.wordCount}.\n"
-                        "Bubbles: ${dialogue.bubbleCount}.\n"
-                        "\n"
-                        "That's "
-                        "${dialogue.wordsPerBubbleAverage.toStringAsFixed(2)}"
-                        " words per bubble on average.",
+                    message: summary,
                   ));
+
+                  unawaited(Clipboard.setData(ClipboardData(text: summary)));
                 },
                 child: const Text('Count dialogue'),
               ),
