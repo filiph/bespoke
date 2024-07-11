@@ -86,37 +86,45 @@ class AiArea extends HookConsumerWidget {
                   _log.info(() => "Sending chunks to AI: "
                       "${chunks.map(_debugShortenParagraph).toList()}");
                   for (final chunk in chunks) {
+                    final wrappedChunk =
+                        OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                            chunk);
                     final model = await openAi.instance.chat.create(
                       model: 'gpt-4',
                       messages: [
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.system,
-                          content: "You are a copy editor. "
-                              "Rewrite the paragraphs that will be given "
-                              "to you by the user. "
-                              "Assume the user is an ESL person. "
-                              "Keep the original meaning and tone. "
-                              "Do NOT make the text more formal than it is. "
-                              "Keep it casual, almost as spoken text. "
-                              "Only edit if there are "
-                              "wrongly used phrasal verbs, "
-                              "or if a particular sentence would be "
-                              "written differently by a native speaker. "
-                              "If you find any of the original text acceptable,"
-                              "keep it as is. Don't fix what isn't broken. "
-                              "If the input text contains Markdown or HTML "
-                              "formatting, keep it. "
-                              "Output only the corrected text.", // TODO: add examples
+                          content: [
+                            OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                                "You are a copy editor. "
+                                "Rewrite the paragraphs that will be given "
+                                "to you by the user. "
+                                "Assume the user is an ESL person. "
+                                "Keep the original meaning and tone. "
+                                "Do NOT make the text more formal than it is. "
+                                "Keep it casual, almost as spoken text. "
+                                "Only edit if there are "
+                                "wrongly used phrasal verbs, "
+                                "or if a particular sentence would be "
+                                "written differently by a native speaker. "
+                                "If you find any of the original text acceptable,"
+                                "keep it as is. Don't fix what isn't broken. "
+                                "If the input text contains Markdown or HTML "
+                                "formatting, keep it. "
+                                "Output only the corrected text.")
+                          ], // TODO: add examples
                         ),
                         OpenAIChatCompletionChoiceMessageModel(
                           role: OpenAIChatMessageRole.user,
-                          content: chunk,
+                          content: [wrappedChunk],
                         )
                       ],
                       n: 1,
                       client: httpClient,
                     );
-                    editedChunks.add(model.choices.first.message.content);
+                    editedChunks.addAll(model.choices.first.message.content
+                            ?.map((m) => m.text!) ??
+                        const []);
                   }
 
                   textController.text = editedChunks.join('\n\n');
@@ -175,7 +183,7 @@ class AiArea extends HookConsumerWidget {
     );
   }
 
-  int _countDialogueWords(String full) {
+  static int _countDialogueWords(String full) {
     const delimiter = '\n';
     final paragraphs = full.trim().split(delimiter).map((e) => e.trim());
 
