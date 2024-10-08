@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:bespoke/src/ai/ai_area.dart';
 import 'package:bespoke/src/glyphs/glyphs.dart';
+import 'package:bespoke/src/hacker_news/hacker_news.dart';
 import 'package:bespoke/src/main_area.dart';
 import 'package:bespoke/src/shortcuts/shortcuts.dart';
 import 'package:bespoke/src/status_line.dart';
@@ -33,6 +35,11 @@ void main() async {
   WindowManipulator.hideCloseButton();
   WindowManipulator.hideMiniaturizeButton();
   WindowManipulator.hideZoomButton();
+
+  // A hacky way to periodically check hacker news.
+  final hackerNewsTimer =
+      Timer.periodic(const Duration(hours: 1), checkHackerNews);
+  checkHackerNews(hackerNewsTimer);
 
   runApp(const ProviderScope(child: MyApp()));
 }
