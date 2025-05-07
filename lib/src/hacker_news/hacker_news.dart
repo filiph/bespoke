@@ -15,18 +15,19 @@ void checkHackerNews(Timer timer) async {
     _log.info('Fetching from hacker news');
     final news = HackerNews(newsType: NewsType.newStories);
     final stories = await news.getStories();
-    final relevantStories = stories.where(_relevant);
-    if (relevantStories.isNotEmpty) {
+    final relevantStories = stories.where(_relevant).toList(growable: false);
+    for (final story in relevantStories) {
+      final sanitized = story.title.replaceAll('"', '');
       Process.run('osascript', [
         '-e',
         'display notification '
-            '"${relevantStories.length} new relevant article(s) found '
-            'on Hacker News." '
-            'with title "News article found" '
+            '"$sanitized" '
+            'with title "Bespoke app found a news article" '
             'subtitle "Hacker News" '
             'sound name "Frog"',
       ]);
-    } else {
+    }
+    if (relevantStories.isEmpty) {
       debugPrint('No new relevant articles found.');
     }
   } catch (e) {
