@@ -1,6 +1,6 @@
 name: bespoke
 description: A bespoke app for Filip.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 0.0.0+1
 
@@ -27,10 +27,10 @@ dependencies:
   wnews: ^0.2.2
 
   # Riverpod dependencies.
-  hooks_riverpod: ^3.0.0-dev.3
-  flutter_riverpod: ^3.0.0-dev.3
-  riverpod: ^3.0.0-dev.3
-  riverpod_annotation: ^3.0.0-dev.3
+  hooks_riverpod: 3.0.0-dev.3  # Later versions are breaking.
+  flutter_riverpod: 3.0.0-dev.3  # Later versions are breaking.
+  riverpod: 3.0.0-dev.3  # Later versions are breaking.
+  riverpod_annotation: 3.0.0-dev.3  # Later versions are breaking.
 
 dev_dependencies:
   flutter_test:
