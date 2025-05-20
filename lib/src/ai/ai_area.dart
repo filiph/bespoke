@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bespoke/src/ai/open_ai.dart';
 import 'package:bespoke/src/comics/count_dialogue.dart';
+import 'package:bespoke/src/programming/timestamp_to_datetime.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -189,6 +190,25 @@ class AiArea extends HookConsumerWidget {
                   unawaited(Clipboard.setData(ClipboardData(text: summary)));
                 },
                 child: const Text('Count dialogue'),
+              ),
+              Button95(
+                onTap: () async {
+                  final textController = ref.read(textControllerProvider);
+                  final text = textController.text.trim();
+
+                  if (text.isEmpty) {
+                    _log.info('Empty input');
+                    return;
+                  }
+
+                  _log.fine('Converting timestamps in input of length '
+                      '${text.length}');
+
+                  final timestamped = rewriteTimestamps(text);
+
+                  textController.text = timestamped;
+                },
+                child: const Text('Timestamps'),
               ),
               Spacer(),
               SizedBox(
