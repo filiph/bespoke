@@ -66,6 +66,7 @@ bool _relevant(Story story) {
   if (story.url.contains('twitter.com/filiphracek')) return true;
   if (story.url.contains('x.com/filiphracek')) return true;
   if (story.url.contains('github.com/filiph')) return true;
+  if (story.url.contains('filiph.github.io')) return true;
   if (story.url.contains('medium.com/@filiph')) return true;
   if (story.url.contains('youtube.com/filiphracek')) return true;
 
