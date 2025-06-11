@@ -14,5 +14,5 @@ to regenerate riverpod files.
 ## Deployment
 
 ```console
-$ fvm flutter build macos
+$ make
 ```
