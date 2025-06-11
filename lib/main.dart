@@ -94,18 +94,6 @@ class MyHomePage extends HookConsumerWidget {
                   ),
                 ),
               ),
-              // Row(
-              //   children: [
-              //     Button95(
-              //       child: Text('News'),
-              //       onTap: () =>
-              //           ref.read(tabProvider.notifier).state = Tab.news,
-              //     ),
-              //     Button95(
-              //       child: Text('Grammar'),
-              //     ),
-              //   ],
-              // ),
               SizedBox(height: 2),
               StatusLine(),
               // Some breathing room for the status line.
