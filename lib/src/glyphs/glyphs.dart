@@ -16,6 +16,7 @@ class Glyphs extends StatelessWidget {
           _Glyph('½'),
           _Glyph('²'),
           _Glyph('∞'),
+          _Glyph('π'),
           _Glyph('°'),
           _Glyph('™'),
           _Glyph('↑'),
@@ -25,6 +26,7 @@ class Glyphs extends StatelessWidget {
           _Glyph('✔️'),
           _Glyph(' '),
           _Glyph(r'¯\_(ツ)_/¯'),
+          _Glyph(r'DIČ', 'CZ04498216'),
         ],
       ),
     );
@@ -34,7 +36,11 @@ class Glyphs extends StatelessWidget {
 class _Glyph extends StatelessWidget {
   final String glyph;
 
-  _Glyph(this.glyph) : super(key: ValueKey(glyph));
+  final String clipboardValue;
+
+  _Glyph(this.glyph, [String? clipboardValue])
+      : clipboardValue = clipboardValue ?? glyph,
+        super(key: ValueKey(glyph));
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +48,7 @@ class _Glyph extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       child: Text(glyph),
       onTap: () {
-        Clipboard.setData(ClipboardData(text: glyph));
+        Clipboard.setData(ClipboardData(text: clipboardValue));
       },
     );
   }
