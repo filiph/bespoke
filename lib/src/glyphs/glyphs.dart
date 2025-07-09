@@ -12,6 +12,7 @@ class Glyphs extends StatelessWidget {
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           _Glyph('½'),
           _Glyph('²'),
@@ -19,14 +20,18 @@ class Glyphs extends StatelessWidget {
           _Glyph('π'),
           _Glyph('°'),
           _Glyph('™'),
+          _Glyph('©'),
           _Glyph('↑'),
           _Glyph('↓'),
           _Glyph('←'),
           _Glyph('→'),
           _Glyph('✔️'),
-          _Glyph(' '),
+          _Glyph('NBSP', ' '),
           _Glyph(r'¯\_(ツ)_/¯'),
+          Text('Raindead:'),
           _Glyph(r'DIČ', 'CZ04498216'),
+          _Glyph(r'AdrEn', 'Hermanova 597/61'),
+          _Glyph(r'AdrCz', 'Heřmanova 597/61'),
         ],
       ),
     );
