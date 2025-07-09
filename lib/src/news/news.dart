@@ -41,7 +41,7 @@ class NewsView extends HookConsumerWidget {
       child: switch (news) {
         AsyncData<List<NewsItem>>(:final value) ||
         AsyncLoading(hasValue: true, :final value!) =>
-          ListView(
+          Column(
             children: [
               for (final item in value)
                 Padding(

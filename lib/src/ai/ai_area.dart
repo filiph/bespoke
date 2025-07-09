@@ -45,174 +45,188 @@ class AiArea extends HookConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Button95(
-                onTap: () async {
-                  // TODO: accept also 'text/html' data (save them separately?)
-                  final content = await Clipboard.getData('text/plain');
-                  final text = content?.text;
-                  if (text == null) {
-                    debugPrint("No text in clipboard");
-                  } else {
-                    final textController = ref.read(textControllerProvider);
-                    textController.text = text;
-                  }
-                },
-                child: const Text('Paste'),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    spacing: 4,
+                    children: [
+                      Button95(
+                        onTap: () async {
+                          // TODO: accept also 'text/html' data (save them separately?)
+                          final content = await Clipboard.getData('text/plain');
+                          final text = content?.text;
+                          if (text == null) {
+                            debugPrint("No text in clipboard");
+                          } else {
+                            final textController =
+                                ref.read(textControllerProvider);
+                            textController.text = text;
+                          }
+                        },
+                        child: const Text('Paste'),
+                      ),
+                      Button95(
+                        onTap: () {
+                          final textController =
+                              ref.read(textControllerProvider);
+                          textController.clear();
+                        },
+                        child: const Text('Clear'),
+                      ),
+                      Button95(
+                        onTap: () async {
+                          final textController =
+                              ref.read(textControllerProvider);
+                          final text = textController.text;
+
+                          if (text.trim().isEmpty) {
+                            _log.info('Empty input');
+                            return;
+                          }
+
+                          // Show "thinking" indicator
+                          ref.read(isProcessingProvider.notifier).state = true;
+
+                          final openAi = ref.read(openAiControllerProvider);
+                          final chunks = _splitIntoChunks(text);
+                          final editedChunks = <String>[];
+                          final httpClient = http.Client();
+                          _log.info(() => "Sending chunks to AI: "
+                              "${chunks.map(_debugShortenParagraph).toList()}");
+                          for (final chunk in chunks) {
+                            final wrappedChunk =
+                                OpenAIChatCompletionChoiceMessageContentItemModel
+                                    .text(chunk);
+                            final model = await openAi.instance.chat.create(
+                              model: 'gpt-4',
+                              messages: [
+                                OpenAIChatCompletionChoiceMessageModel(
+                                  role: OpenAIChatMessageRole.system,
+                                  content: [
+                                    OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                                        "You are a copy editor. "
+                                        "Rewrite the paragraphs that will be given "
+                                        "to you by the user. "
+                                        "Assume the user is an ESL person. "
+                                        "Keep the original meaning and tone. "
+                                        "Do NOT make the text more formal than it is. "
+                                        "Keep it casual, almost as spoken text. "
+                                        "Only edit if there are "
+                                        "wrongly used phrasal verbs, "
+                                        "or if a particular sentence would be "
+                                        "written differently by a native speaker. "
+                                        "If you find any of the original text acceptable,"
+                                        "keep it as is. Don't fix what isn't broken. "
+                                        "If the input text contains Markdown or HTML "
+                                        "formatting, keep it. "
+                                        "Output only the corrected text.")
+                                  ], // TODO: add examples
+                                ),
+                                OpenAIChatCompletionChoiceMessageModel(
+                                  role: OpenAIChatMessageRole.user,
+                                  content: [wrappedChunk],
+                                )
+                              ],
+                              n: 1,
+                              client: httpClient,
+                            );
+                            editedChunks.addAll(model
+                                    .choices.first.message.content
+                                    ?.map((m) => m.text!) ??
+                                const []);
+                          }
+
+                          textController.text = editedChunks.join('\n\n');
+                          httpClient.close();
+
+                          // Stop showing "thinking" indicator.
+                          ref.read(isProcessingProvider.notifier).state = false;
+                        },
+                        child: const Text('English'),
+                      ),
+                      Button95(
+                        onTap: null,
+                        child: const Text('→ Markdown'),
+                      ),
+                      Button95(
+                        onTap: () async {
+                          final textController =
+                              ref.read(textControllerProvider);
+                          final text = textController.text.trim();
+
+                          if (text.isEmpty) {
+                            _log.info('Empty input');
+                            return;
+                          }
+
+                          _log.fine('Counting words in input of length '
+                              '${text.length}');
+
+                          final dialogue = extractDialogue(text);
+
+                          _log.info(
+                              "Words in the dialogue: ${dialogue.words.length}");
+
+                          final summary = "Slov: ${dialogue.words.length}.\n"
+                              "Bublin: ${dialogue.bubbles.length}.\n"
+                              "Panelů: ${dialogue.panels.length}.\n"
+                              "\n"
+                              "To je v průměru "
+                              "${dialogue.wordsPerBubbleAverage.toStringAsFixed(1)}"
+                              " slov na bublinu "
+                              "a "
+                              "${dialogue.wordsPerPanelAverage.toStringAsFixed(1)}"
+                              " slov na panel.\n"
+                              "\n"
+                              "Je tu ${dialogue.countPanelsWithBubbleCount(0)} "
+                              "panelů bez bubliny, "
+                              "${dialogue.countPanelsWithBubbleCount(1)} "
+                              "panelů s jednou bublinou, "
+                              "${dialogue.countPanelsWithBubbleCount(2)} "
+                              "panelů se dvěma bublinama. "
+                              "V průměru "
+                              "${dialogue.bubblesPerPanelAverage.toStringAsFixed(1)}"
+                              " bublin na panel.";
+
+                          unawaited(showDialog95(
+                            context: context,
+                            title: 'Dialog word count',
+                            message: summary,
+                          ));
+
+                          unawaited(
+                              Clipboard.setData(ClipboardData(text: summary)));
+                        },
+                        child: const Text('Count dialogue'),
+                      ),
+                      Button95(
+                        onTap: () async {
+                          final textController =
+                              ref.read(textControllerProvider);
+                          final text = textController.text.trim();
+
+                          if (text.isEmpty) {
+                            _log.info('Empty input');
+                            return;
+                          }
+
+                          _log.fine('Converting timestamps in input of length '
+                              '${text.length}');
+
+                          final timestamped = rewriteTimestamps(text);
+
+                          textController.text = timestamped;
+                        },
+                        child: const Text('Timestamps'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              SizedBox(height: 4),
-              Button95(
-                onTap: () {
-                  final textController = ref.read(textControllerProvider);
-                  textController.clear();
-                },
-                child: const Text('Clear'),
-              ),
-              SizedBox(height: 8),
-              Button95(
-                onTap: () async {
-                  final textController = ref.read(textControllerProvider);
-                  final text = textController.text;
-
-                  if (text.trim().isEmpty) {
-                    _log.info('Empty input');
-                    return;
-                  }
-
-                  // Show "thinking" indicator
-                  ref.read(isProcessingProvider.notifier).state = true;
-
-                  final openAi = ref.read(openAiControllerProvider);
-                  final chunks = _splitIntoChunks(text);
-                  final editedChunks = <String>[];
-                  final httpClient = http.Client();
-                  _log.info(() => "Sending chunks to AI: "
-                      "${chunks.map(_debugShortenParagraph).toList()}");
-                  for (final chunk in chunks) {
-                    final wrappedChunk =
-                        OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                            chunk);
-                    final model = await openAi.instance.chat.create(
-                      model: 'gpt-4',
-                      messages: [
-                        OpenAIChatCompletionChoiceMessageModel(
-                          role: OpenAIChatMessageRole.system,
-                          content: [
-                            OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                                "You are a copy editor. "
-                                "Rewrite the paragraphs that will be given "
-                                "to you by the user. "
-                                "Assume the user is an ESL person. "
-                                "Keep the original meaning and tone. "
-                                "Do NOT make the text more formal than it is. "
-                                "Keep it casual, almost as spoken text. "
-                                "Only edit if there are "
-                                "wrongly used phrasal verbs, "
-                                "or if a particular sentence would be "
-                                "written differently by a native speaker. "
-                                "If you find any of the original text acceptable,"
-                                "keep it as is. Don't fix what isn't broken. "
-                                "If the input text contains Markdown or HTML "
-                                "formatting, keep it. "
-                                "Output only the corrected text.")
-                          ], // TODO: add examples
-                        ),
-                        OpenAIChatCompletionChoiceMessageModel(
-                          role: OpenAIChatMessageRole.user,
-                          content: [wrappedChunk],
-                        )
-                      ],
-                      n: 1,
-                      client: httpClient,
-                    );
-                    editedChunks.addAll(model.choices.first.message.content
-                            ?.map((m) => m.text!) ??
-                        const []);
-                  }
-
-                  textController.text = editedChunks.join('\n\n');
-                  httpClient.close();
-
-                  // Stop showing "thinking" indicator.
-                  ref.read(isProcessingProvider.notifier).state = false;
-                },
-                child: const Text('English'),
-              ),
-              SizedBox(height: 4),
-              Button95(
-                onTap: null,
-                child: const Text('→ Markdown'),
-              ),
-              SizedBox(height: 4),
-              Button95(
-                onTap: () async {
-                  final textController = ref.read(textControllerProvider);
-                  final text = textController.text.trim();
-
-                  if (text.isEmpty) {
-                    _log.info('Empty input');
-                    return;
-                  }
-
-                  _log.fine('Counting words in input of length '
-                      '${text.length}');
-
-                  final dialogue = extractDialogue(text);
-
-                  _log.info("Words in the dialogue: ${dialogue.words.length}");
-
-                  final summary = "Slov: ${dialogue.words.length}.\n"
-                      "Bublin: ${dialogue.bubbles.length}.\n"
-                      "Panelů: ${dialogue.panels.length}.\n"
-                      "\n"
-                      "To je v průměru "
-                      "${dialogue.wordsPerBubbleAverage.toStringAsFixed(1)}"
-                      " slov na bublinu "
-                      "a "
-                      "${dialogue.wordsPerPanelAverage.toStringAsFixed(1)}"
-                      " slov na panel.\n"
-                      "\n"
-                      "Je tu ${dialogue.countPanelsWithBubbleCount(0)} "
-                      "panelů bez bubliny, "
-                      "${dialogue.countPanelsWithBubbleCount(1)} "
-                      "panelů s jednou bublinou, "
-                      "${dialogue.countPanelsWithBubbleCount(2)} "
-                      "panelů se dvěma bublinama. "
-                      "V průměru "
-                      "${dialogue.bubblesPerPanelAverage.toStringAsFixed(1)}"
-                      " bublin na panel.";
-
-                  unawaited(showDialog95(
-                    context: context,
-                    title: 'Dialog word count',
-                    message: summary,
-                  ));
-
-                  unawaited(Clipboard.setData(ClipboardData(text: summary)));
-                },
-                child: const Text('Count dialogue'),
-              ),
-              Button95(
-                onTap: () async {
-                  final textController = ref.read(textControllerProvider);
-                  final text = textController.text.trim();
-
-                  if (text.isEmpty) {
-                    _log.info('Empty input');
-                    return;
-                  }
-
-                  _log.fine('Converting timestamps in input of length '
-                      '${text.length}');
-
-                  final timestamped = rewriteTimestamps(text);
-
-                  textController.text = timestamped;
-                },
-                child: const Text('Timestamps'),
-              ),
-              Spacer(),
-              SizedBox(
-                width: 120,
+              SizedBox(height: 20),
+              LimitedBox(
+                maxWidth: 120,
                 child: Consumer(
                   builder: (context, ref, _) {
                     final isProcessing = ref.watch(isProcessingProvider);
