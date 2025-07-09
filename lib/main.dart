@@ -72,7 +72,11 @@ class MyHomePage extends HookConsumerWidget {
         SystemNavigator.pop();
       },
       toolbar: Toolbar95(
-        actions: getToolbarActions(),
+        actions: getToolbarActions((message) {
+          if (message == null) return;
+          if (!context.mounted) return;
+          showDialog95(context: context, title: 'Result', message: message);
+        }),
       ),
       body: Expanded(
         child: DefaultTextStyle(

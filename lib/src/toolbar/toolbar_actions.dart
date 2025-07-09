@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-List<Item95> getToolbarActions() => [
+typedef TextResultCallback = void Function(String? message);
+
+List<Item95> getToolbarActions(TextResultCallback callback) => [
       Item95(
         label: 'File',
         menu: _Submenu(items: {
@@ -17,19 +19,21 @@ List<Item95> getToolbarActions() => [
         label: 'Go',
         menu: _Submenu(items: {
           'Napkin': () async =>
-              launchUrlString('https://filiph.github.io/napkin/'),
+              _launchUrl('https://filiph.github.io/napkin/', callback),
           'Unsure': () async =>
-              launchUrlString('https://filiph.github.io/unsure/'),
-          'Wope': () async => launchUrlString('https://filiph.github.io/wope/'),
+              _launchUrl('https://filiph.github.io/unsure/', callback),
+          'Wope': () async =>
+              _launchUrl('https://filiph.github.io/wope/', callback),
           'YouTube subs prettifier': () async =>
-              launchUrlString('https://filiph.github.io/youtube_subs/'),
+              _launchUrl('https://filiph.github.io/youtube_subs/', callback),
           'Script prompter': () async =>
-              launchUrlString('https://filiph.net/prompter/'),
+              _launchUrl('https://filiph.net/prompter/', callback),
           'Lorem ipsumize': () async =>
-              launchUrlString('https://filiph.net/lorem/'),
+              _launchUrl('https://filiph.net/lorem/', callback),
           'Calendar linker': () async =>
-              launchUrlString('https://filiph.net/gcal/'),
-          'docs2html': () async => launchUrlString('https://filiph.net/d2b/'),
+              _launchUrl('https://filiph.net/gcal/', callback),
+          'docs2html': () async =>
+              _launchUrl('https://filiph.net/d2b/', callback),
         }).asMenu95,
       ),
       Item95(label: 'Edit'),
@@ -37,12 +41,14 @@ List<Item95> getToolbarActions() => [
         label: 'Blog',
         menu: _Submenu(items: {
           'Serve': () async {
-            await _runTerminal('cd /Users/filiph/dev/filiphnet && make serve');
-            await launchUrlString('http://localhost:3474/');
+            await _runTerminal(
+                'cd /Users/filiph/dev/filiphnet && make serve', callback);
+            await _launchUrl('http://localhost:3474/', callback);
           },
           'Publish': () async {
-            await _runTerminal('cd /Users/filiph/dev/filiphnet && make deploy');
-            await launchUrlString("https://filiph.net/text");
+            await _runTerminal(
+                'cd /Users/filiph/dev/filiphnet && make deploy', callback);
+            await _launchUrl("https://filiph.net/text", callback);
           },
         }).asMenu95,
       ),
@@ -51,16 +57,19 @@ List<Item95> getToolbarActions() => [
         menu: _Submenu(items: {
           'Serve': () async {
             await _runTerminal(
-                'cd /Users/filiph/dev/fajfka.cz && make serve_retezak');
-            await launchUrlString('http://localhost:3474/');
+                'cd /Users/filiph/dev/fajfka.cz && make serve_retezak',
+                callback);
+            await _launchUrl('http://localhost:3474/', callback);
           },
           'Publish': () async {
             await _runTerminal(
-                'cd /Users/filiph/dev/fajfka.cz && make deploy_retezak');
-            await launchUrlString("https://anti-retezak.cz/");
+                'cd /Users/filiph/dev/fajfka.cz && make deploy_retezak',
+                callback);
+            await _launchUrl("https://anti-retezak.cz/", callback);
           },
           'Send': () async {
-            await _runTerminal('cd /Users/filiph/dev/fajfka.cz && make send');
+            await _runTerminal(
+                'cd /Users/filiph/dev/fajfka.cz && make send', callback);
           },
         }).asMenu95,
       ),
@@ -68,12 +77,14 @@ List<Item95> getToolbarActions() => [
         label: 'Fajfka',
         menu: _Submenu(items: {
           'Serve': () async {
-            await _runTerminal('cd /Users/filiph/dev/fajfka.cz && make serve');
-            await launchUrlString('http://localhost:3474/');
+            await _runTerminal(
+                'cd /Users/filiph/dev/fajfka.cz && make serve', callback);
+            await _launchUrl('http://localhost:3474/', callback);
           },
           'Publish': () async {
-            await _runTerminal('cd /Users/filiph/dev/fajfka.cz && make deploy');
-            await launchUrlString("https://fajfka.cz/");
+            await _runTerminal(
+                'cd /Users/filiph/dev/fajfka.cz && make deploy', callback);
+            await _launchUrl("https://fajfka.cz/", callback);
           },
         }).asMenu95,
       ),
@@ -82,12 +93,14 @@ List<Item95> getToolbarActions() => [
         menu: _Submenu(items: {
           'Build': () async {
             await _runTerminal(
-                'cd /Users/filiph/dev/blanictiroboti.cz && make build');
+                'cd /Users/filiph/dev/blanictiroboti.cz && make build',
+                callback);
           },
           'Serve': () async {
             await _runTerminal(
-                'cd /Users/filiph/dev/blanictiroboti.cz && make build && make serve');
-            await launchUrlString('http://localhost:3474/');
+                'cd /Users/filiph/dev/blanictiroboti.cz && make build && make serve',
+                callback);
+            await _launchUrl('http://localhost:3474/', callback);
           },
           'Publish': () async {
             final result = await Process.run('osascript', [
@@ -110,29 +123,49 @@ List<Item95> getToolbarActions() => [
         //   'Serve': () async {
         //     await _runTerminal(
         //         'cd /Users/filiph/dev/selfimproving-dev && make serve');
-        //     await launchUrlString('http://localhost:3474/');
+        //     await _launchUrl('http://localhost:3474/');
         //   },
         //   'Publish': () async {
         //     await _runTerminal('cd /Users/filiph/dev/selfimproving-dev && make deploy');
-        //     await launchUrlString("https://selfimproving.dev");
+        //     await _launchUrl("https://selfimproving.dev");
         //   },
         // }).asMenu95,
       ),
       Item95(label: 'Help'),
     ];
 
-Future<void> _runTerminal(String command) async {
+Future<void> _runTerminal(String command, TextResultCallback callback) async {
   if (command.contains('"')) {
     throw ArgumentError(command);
   }
 
-  final result = Process.run('osascript', [
-    '-e',
-    'tell app "Terminal" to do script "$command"',
-  ]);
+  final ProcessResult result;
+  try {
+    result = await Process.run('osascript', [
+      '-e',
+      'tell app "Terminal" to do script "$command"',
+    ]);
+  } catch (e) {
+    callback('Error running the process: $e');
+    return;
+  }
 
-  var r = await result;
-  debugPrint(r.stdout);
+  debugPrint(result.stdout);
+  if (result.exitCode != 0) {
+    final buf = StringBuffer();
+    buf.writeln(result.stderr);
+    buf.writeln('----');
+    buf.writeln(result.stdout);
+    callback(buf.toString());
+  }
+}
+
+Future<void> _launchUrl(String url, TextResultCallback callback) async {
+  try {
+    await launchUrlString(url);
+  } catch (e) {
+    callback(e.toString());
+  }
 }
 
 typedef AsyncCallback = Future<void> Function();
