@@ -4,11 +4,11 @@ import 'dart:developer' as dev;
 import 'package:bespoke/src/ai/ai_area.dart';
 import 'package:bespoke/src/glyphs/glyphs.dart';
 import 'package:bespoke/src/hacker_news/hacker_news.dart';
-import 'package:bespoke/src/main_area.dart';
+import 'package:bespoke/src/news/news.dart';
 import 'package:bespoke/src/shortcuts/shortcuts.dart';
 import 'package:bespoke/src/status_line.dart';
 import 'package:bespoke/src/toolbar/toolbar_actions.dart';
-import 'package:flutter/material.dart' hide Tab;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -89,9 +89,9 @@ class MyHomePage extends HookConsumerWidget {
                   type: Elevation95Type.down,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                    children: const [
                       ShortcutsView(),
-                      Expanded(child: MainArea()),
+                      NewsView(),
                       Glyphs(),
                       Expanded(child: AiArea()),
                     ],
