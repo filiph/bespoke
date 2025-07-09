@@ -49,7 +49,13 @@ class NewsView extends HookConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(child: Text(item.text)),
+                      Expanded(
+                        child: Text(
+                          item.text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       SizedBox(width: 8.0),
                       MouseRegion(
                         cursor: SystemMouseCursors.click,
