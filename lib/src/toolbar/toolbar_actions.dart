@@ -70,6 +70,9 @@ List<Item95> getToolbarActions(TextResultCallback callback) => [
           'Send': () async {
             await _runTerminal(
                 'cd /Users/filiph/dev/fajfka.cz && make send', callback);
+            await _launchUrl(
+                'https://diky.ecomailapp.cz/automation?orderBy=name&orderDir=asc',
+                callback);
           },
         }).asMenu95,
       ),

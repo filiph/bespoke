@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter95/flutter95.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -78,7 +78,10 @@ class NewsView extends HookConsumerWidget {
             ],
           ),
         AsyncLoading(hasValue: false) => const Text('Loading...'),
-        AsyncError(:final error) => ErrorWidget('Error: $error'),
+        AsyncError(:final error) => Text(
+            'Error: $error',
+            style: TextStyle(color: Colors.red),
+          ),
       },
     );
   }
