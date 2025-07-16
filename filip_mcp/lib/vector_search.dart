@@ -7,8 +7,7 @@ import 'package:filip_mcp/scored_result.dart';
 import 'package:logging/logging.dart';
 
 import 'obsidian_note.dart';
-
-final _logger = Logger('VectorSearch');
+import 'word_embedding_serde.dart';
 
 // /// Example usage
 // Future<void> main() async {
@@ -54,7 +53,10 @@ final _logger = Logger('VectorSearch');
 
 /// Main vector search engine for notes
 class VectorSearchEngine {
+  static final Logger _logger = Logger('VectorSearchEngine');
+
   final _WordEmbeddingManager _embeddingManager;
+
   final List<_TextEmbedding> _noteEmbeddings = [];
 
   // Sliding window configuration
@@ -236,8 +238,9 @@ class _TextEmbedding {
 
 /// Handles word embeddings loading and vector operations
 class _WordEmbeddingManager {
-  final Map<String, List<double>> _wordVectors = {};
+  final Map<int, List<double>> _wordVectors = {};
   final int dimensions;
+  final Logger _logger = Logger('WordEmbeddingManager');
 
   _WordEmbeddingManager({required this.dimensions});
 
@@ -245,7 +248,7 @@ class _WordEmbeddingManager {
   List<double>? computeEmbedding(String text) {
     final words = _tokenize(text);
     final validWords = words
-        .where((word) => _wordVectors.containsKey(word))
+        .where((word) => _wordVectors.containsKey(word.hashCode))
         .toList();
 
     if (validWords.isEmpty) return null;
@@ -253,7 +256,7 @@ class _WordEmbeddingManager {
     final result = List<double>.filled(dimensions, 0);
 
     for (final word in validWords) {
-      final vector = _wordVectors[word]!;
+      final vector = _wordVectors[word.hashCode]!;
       for (int i = 0; i < dimensions; i++) {
         result[i] += vector[i];
       }
@@ -284,19 +287,60 @@ class _WordEmbeddingManager {
   }
 
   /// Load GloVe embeddings from file
+  ///
+  /// If a binary version of the file exists at '$path.bin' and is newer than
+  /// the text file, it will load from the binary file for better performance.
+  /// Otherwise, it will load from the text file and save a binary version.
   Future<void> loadFromFile(String path) async {
-    _logger.info('Loading word embeddings from $path...');
-    final file = File(path);
-    if (!await file.exists()) {
+    final textFile = File(path);
+    if (!await textFile.exists()) {
       throw FileSystemException('Embeddings file not found', path);
     }
 
-    final lines = file
+    final binaryPath = '$path.bin';
+    final binaryFile = File(binaryPath);
+    final binaryExists = await binaryFile.exists();
+
+    // Check if binary file exists and is newer than text file
+    if (binaryExists) {
+      final textStat = await textFile.stat();
+      final binaryStat = await binaryFile.stat();
+
+      if (binaryStat.modified.isAfter(textStat.modified)) {
+        _logger.info('Loading word embeddings from binary file $binaryPath...');
+        try {
+          final wordVectors = await WordEmbeddingSerde.loadFromBinaryFile(
+            binaryPath,
+            dimensions,
+          );
+
+          _wordVectors.clear();
+          _wordVectors.addEntries(wordVectors.entries);
+
+          _logger.info(
+            'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions from binary file',
+          );
+
+          return;
+        } catch (e) {
+          _logger.warning(
+            'Failed to load binary file: $e. Falling back to text file.',
+          );
+        }
+      }
+    }
+
+    // Load from text file
+    _logger.info('Loading word embeddings from text file $path...');
+    final lines = textFile
         .openRead()
         .transform(utf8.decoder)
         .transform(LineSplitter());
 
+    _wordVectors.clear();
     int count = 0;
+
+    final Map<int, String> wordHashes = {};
     await for (final line in lines) {
       final parts = line.split(' ');
       if (parts.length != dimensions + 1) continue;
@@ -304,7 +348,14 @@ class _WordEmbeddingManager {
       final word = parts[0].toLowerCase();
       final vector = parts.sublist(1).map((s) => double.parse(s)).toList();
 
-      _wordVectors[word] = vector;
+      final int wordHash = word.hashCode;
+      if (wordHashes.containsKey(wordHash)) {
+        throw Exception(
+          'Hash collision detected: "$word" and "${wordHashes[wordHash]}" '
+          'have the same hash ($wordHash)',
+        );
+      }
+      _wordVectors[wordHash] = vector;
       count++;
 
       if (count % 10000 == 0) {
@@ -313,8 +364,20 @@ class _WordEmbeddingManager {
     }
 
     _logger.info(
-      'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions',
+      'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions from text file',
     );
+
+    // Save to binary file for future use
+    try {
+      await WordEmbeddingSerde.saveToBinaryFile(
+        binaryPath,
+        _wordVectors,
+        dimensions,
+      );
+      _logger.info('Saved binary version to $binaryPath');
+    } catch (e) {
+      _logger.warning('Failed to save binary file: $e');
+    }
   }
 
   /// Simple tokenization - split text into lowercase words

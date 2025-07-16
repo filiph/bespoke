@@ -5,3 +5,4 @@
 # Do not add GloVe to git.
 glove/*.zip
 glove/*.txt
+glove/*.txt.bin

@@ -10,32 +10,19 @@ class WordEmbeddingSerde {
   /// Save word embeddings to a binary file
   ///
   /// Serializes the word vectors to a binary format.
-  /// For each word, stores an int64 hash of the word and a Float64List of the embedding.
+  /// For each word, stores an int64 hash of the word and a Float32List of the embedding.
   /// Throws an exception if any words have the same hash.
   static Future<void> saveToBinaryFile(
     String path,
-    Map<String, List<double>> wordVectors,
+    Map<int, List<double>> wordVectors,
     int dimensions,
   ) async {
     _logger.info('Saving word embeddings to binary file $path...');
 
-    // Check for hash collisions
-    final Map<int, String> wordHashes = {};
-    for (final word in wordVectors.keys) {
-      final int wordHash = word.hashCode;
-      if (wordHashes.containsKey(wordHash)) {
-        throw Exception(
-          'Hash collision detected: "$word" and "${wordHashes[wordHash]}" '
-          'have the same hash ($wordHash)',
-        );
-      }
-      wordHashes[wordHash] = word;
-    }
-
     // Calculate buffer size
     final int headerSize = 8; // 2 int32 values (word count and dimensions)
     final int wordSize = 8; // int64 hash
-    final int vectorSize = dimensions * 8; // float64 values
+    final int vectorSize = dimensions * 4; // float32 values
     final int totalSize =
         headerSize + wordVectors.length * (wordSize + vectorSize);
 
@@ -51,17 +38,17 @@ class WordEmbeddingSerde {
 
     // Write each word's hash and vector
     for (final entry in wordVectors.entries) {
-      final word = entry.key;
+      final wordHash = entry.key;
       final vector = entry.value;
 
       // Write the word's hash
-      buffer.setInt64(offset, word.hashCode, Endian.little);
+      buffer.setInt64(offset, wordHash, Endian.little);
       offset += 8;
 
       // Write the vector
       for (final value in vector) {
-        buffer.setFloat64(offset, value, Endian.little);
-        offset += 8;
+        buffer.setFloat32(offset, value, Endian.little);
+        offset += 4;
       }
     }
 
@@ -77,8 +64,8 @@ class WordEmbeddingSerde {
   /// Load word embeddings from a binary file
   ///
   /// Deserializes the word vectors from a binary format.
-  /// Each word is represented by an int64 hash and a list of float64 values for the embedding.
-  static Future<Map<String, List<double>>> loadFromBinaryFile(
+  /// Each word is represented by an int64 hash and a list of float32 values for the embedding.
+  static Future<Map<int, List<double>>> loadFromBinaryFile(
     String path,
     int dimensions,
   ) async {
@@ -94,7 +81,7 @@ class WordEmbeddingSerde {
     int offset = 0;
 
     // Clear existing vectors
-    final Map<String, List<double>> wordVectors = {};
+    final Map<int, List<double>> wordVectors = {};
 
     // Read header: number of words and dimensions
     final int wordCount = buffer.getInt32(offset, Endian.little);
@@ -117,14 +104,13 @@ class WordEmbeddingSerde {
       // Read the vector
       final List<double> vector = [];
       for (int j = 0; j < dimensions; j++) {
-        final double value = buffer.getFloat64(offset, Endian.little);
-        offset += 8;
+        final double value = buffer.getFloat32(offset, Endian.little);
+        offset += 4;
         vector.add(value);
       }
 
       // Store with the hash as a key
-      final String hashKey = '#$wordHash';
-      wordVectors[hashKey] = vector;
+      wordVectors[wordHash] = vector;
 
       if (i % 10000 == 0 && i > 0) {
         _logger.info('Loaded $i words...');
