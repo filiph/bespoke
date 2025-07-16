@@ -249,7 +249,8 @@ final class ObsidianServer extends MCPServer
             text:
                 'The query has produced '
                 '${orderedResults.totalResults} total matches out of which '
-                '${orderedResults.returnedResults} are returned. '
+                '${orderedResults.returnedResults} are returned '
+                '(sorted from best match to worst). '
                 "Use the provided path with the fetch tool "
                 "to get any note's full contents.",
           ),
