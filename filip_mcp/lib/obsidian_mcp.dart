@@ -97,6 +97,12 @@ final class ObsidianServer extends MCPServer
               'Must be in the format: YYYY-MM-DD.',
           oneOf: [Schema.nil(), Schema.string()],
         ),
+        'limit': Schema.combined(
+          description:
+              'The maximum number of results to return. '
+              'If null, then the limit is arbitrary but tends to be very large.',
+          oneOf: [Schema.nil(), Schema.int()],
+        ),
       },
     ),
     outputSchema: Schema.object(
@@ -143,10 +149,13 @@ final class ObsidianServer extends MCPServer
         ? ObsidianNote.extractCreatedAtFromString(createdBeforeString)
         : null;
 
+    final limit = request.arguments!['limit'] as int?;
+
     final query = ObsidianQuery(
       searchPhrase: searchPhrase,
       createdAfter: createdAfter,
       createdBefore: createdBefore,
+      limit: limit,
     );
 
     try {

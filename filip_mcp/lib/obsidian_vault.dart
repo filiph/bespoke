@@ -22,10 +22,14 @@ class ObsidianVault {
 
   Future<List<ScoredResult>> query(ObsidianQuery query) async {
     final List<ScoredResult> results;
+    final limit = query.limit;
 
     final searchPhrase = query.searchPhrase;
     if (searchPhrase != null) {
-      results = vectorSearchEngine.search(searchPhrase, topK: query.limit);
+      results = vectorSearchEngine.search(
+        searchPhrase,
+        topK: query.limit ?? 100,
+      );
     } else {
       results = _notes
           .map(
@@ -46,6 +50,10 @@ class ObsidianVault {
     final createdBefore = query.createdBefore;
     if (createdBefore != null) {
       results.removeWhere((r) => r.createdAt?.isAfter(createdBefore) ?? true);
+    }
+
+    if (limit != null && results.length > limit) {
+      results.removeRange(limit, results.length);
     }
 
     return results;

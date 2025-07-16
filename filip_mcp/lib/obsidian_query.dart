@@ -9,12 +9,14 @@ class ObsidianQuery {
   /// If specified, only notes created before or at this date will be returned.
   final DateTime? createdBefore;
 
-  final int limit = 5;
+  /// The maximum number of results to return.
+  final int? limit;
 
   /// Creates a new query with the specified filters.
   const ObsidianQuery({
     required this.searchPhrase,
     required this.createdAfter,
     required this.createdBefore,
+    required this.limit,
   });
 }
