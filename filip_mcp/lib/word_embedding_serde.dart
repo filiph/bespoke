@@ -112,7 +112,7 @@ class WordEmbeddingSerde {
       // Store with the hash as a key
       wordVectors[wordHash] = vector;
 
-      if (i % 10000 == 0 && i > 0) {
+      if (i % 50000 == 0 && i > 0) {
         _logger.info('Loaded $i words...');
       }
     }

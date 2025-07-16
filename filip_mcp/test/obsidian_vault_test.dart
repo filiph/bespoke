@@ -289,6 +289,7 @@ class _FakeVectorSearchEngine implements VectorSearchEngine {
     int? topK = 5,
     DateTime? createdBefore,
     DateTime? createdAfter,
+    double similarityThreshold = 0.2,
   }) {
     return (_searchResults, _searchResults.length);
   }

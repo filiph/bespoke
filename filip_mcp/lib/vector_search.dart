@@ -140,6 +140,7 @@ class VectorSearchEngine {
     int topK = 5,
     DateTime? createdAfter,
     DateTime? createdBefore,
+    double similarityThreshold = 0.2,
   }) {
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
     if (queryEmbedding == null) {
@@ -166,6 +167,8 @@ class VectorSearchEngine {
         queryEmbedding,
         textEmbedding.embedding,
       );
+
+      if (similarity < similarityThreshold) continue;
 
       // Only add unique notes to results
       if (!seenNotes.contains(textEmbedding.note.path)) {
