@@ -132,8 +132,8 @@ class VectorSearchEngine {
   /// [query] is the search phrase to find in the indexed notes.
   /// [topK] is the maximum number of results to return (default: 5).
   ///
-  /// Returns a list of [ScoredResult] objects sorted by relevance score
-  /// (highest scores first). Each result contains the note, the similarity score,
+  /// Returns a growable list of [ScoredResult] objects.
+  /// Each result contains the note, the similarity score,
   /// and the specific text segment that best matched the query.
   List<ScoredResult> search(String query, {int topK = 5}) {
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
@@ -173,7 +173,7 @@ class VectorSearchEngine {
       }
     }
 
-    // Sort by similarity score (highest first)
+    // Sort by score (highest first).
     results.sort((a, b) => b.score.compareTo(a.score));
 
     // Return top K results

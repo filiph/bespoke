@@ -64,6 +64,7 @@ Future<void> main(List<String> arguments) async {
     final logFile = io.File(parsedArgs.option('log-file')!);
     final logSink = logFile.openWrite(mode: io.FileMode.append);
     final timestamp = DateTime.now();
+    Logger.root.level = Level.FINE;
     Logger.root.onRecord.listen((record) {
       logSink.writeln(record);
     });
