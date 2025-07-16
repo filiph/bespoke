@@ -57,6 +57,8 @@ Future<void> main(List<String> arguments) async {
 
     final vectorSearchEngine = await VectorSearchEngine.initialize(
       glovePath: parsedArgs.option('embeddings-file')!,
+      windowSize: 20,
+      windowOverlap: 10,
     );
 
     // Start the server.
