@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:filip_mcp/vector_search.dart';
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
 import 'obsidian_note.dart';
@@ -9,6 +10,8 @@ import 'obsidian_query.dart';
 import 'scored_result.dart';
 
 class ObsidianVault {
+  static final Logger _log = Logger('ObsidianVault');
+
   final String path;
 
   final List<ObsidianNote> _notes = [];
@@ -24,14 +27,18 @@ class ObsidianVault {
   }
 
   ObsidianNote? fetch(String path) {
+    _log.fine('Fetching note with path = $path');
     return _notes.where((n) => n.path == path).singleOrNull;
   }
 
   Future<void> initialize() async {
     await _reindex();
+    _log.info('Vault initialized');
   }
 
   Future<List<ScoredResult>> query(ObsidianQuery query) async {
+    _log.info('Performing query: $query');
+
     final List<ScoredResult> results;
     final limit = query.limit;
 
@@ -53,18 +60,23 @@ class ObsidianVault {
           .toList();
     }
 
+    _log.fine('Found ${results.length} raw results.');
+
     final createdAfter = query.createdAfter;
     if (createdAfter != null) {
       results.removeWhere((r) => r.createdAt?.isBefore(createdAfter) ?? true);
+      _log.fine('After applying createdAfter: ${results.length}');
     }
 
     final createdBefore = query.createdBefore;
     if (createdBefore != null) {
       results.removeWhere((r) => r.createdAt?.isAfter(createdBefore) ?? true);
+      _log.fine('After applying createdBefore: ${results.length}');
     }
 
     if (limit != null && results.length > limit) {
       results.removeRange(limit, results.length);
+      _log.fine('After applying limit: ${results.length}');
     }
 
     return results;

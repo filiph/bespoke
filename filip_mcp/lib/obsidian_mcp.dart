@@ -39,6 +39,8 @@ final class ObsidianServer extends MCPServer
     },
   );
 
+  final void Function() onDone;
+
   final ObsidianVault _vault;
 
   final fetchTool = Tool(
@@ -142,6 +144,7 @@ final class ObsidianServer extends MCPServer
     required String vaultPath,
     required VectorSearchEngine vectorSearchEngine,
     required StreamChannel<String> channel,
+    required this.onDone,
   }) : _vault = ObsidianVault(vaultPath, vectorSearchEngine),
        super.fromStreamChannel(
          channel,
@@ -152,6 +155,12 @@ final class ObsidianServer extends MCPServer
            version: '0.0.1',
          ),
        );
+
+  @override
+  Future<void> shutdown() {
+    onDone();
+    return super.shutdown();
+  }
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
@@ -174,6 +183,15 @@ final class ObsidianServer extends MCPServer
       );
     }
 
+    final String contents;
+    const maxContentsLength = 10000;
+    if (note.contents.length > maxContentsLength) {
+      contents =
+          '${note.contents.substring(0, maxContentsLength)} ... (trimmed)';
+    } else {
+      contents = note.contents;
+    }
+
     return CallToolResult(
       content: [
         TextContent(text: 'Title: ${note.title}'),
@@ -181,7 +199,7 @@ final class ObsidianServer extends MCPServer
         TextContent(
           text:
               'Contents:\n'
-              '${note.contents}',
+              '$contents',
         ),
         // ResourceLink(
         //   name: note.path,
@@ -196,7 +214,7 @@ final class ObsidianServer extends MCPServer
       structuredContent: {
         'title': note.title,
         'createdAt': note.createdAt?.toIso8601String(),
-        'contents': note.contents,
+        'contents': contents,
       },
     );
   }

@@ -19,4 +19,12 @@ class ObsidianQuery {
     required this.createdBefore,
     required this.limit,
   });
+
+  @override
+  String toString() {
+    return 'ObsidianQuery{searchPhrase: $searchPhrase, '
+        'createdAfter: $createdAfter, '
+        'createdBefore: $createdBefore, '
+        'limit: $limit}';
+  }
 }

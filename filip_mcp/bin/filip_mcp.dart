@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:filip_mcp/obsidian_mcp.dart';
 import 'package:filip_mcp/vector_search.dart';
+import 'package:logging/logging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -31,6 +32,11 @@ Future<void> main(List<String> arguments) async {
       help: 'Path to the embeddings file.',
       defaultsTo: '/Users/filiph/dev/bespoke/filip_mcp/glove/glove.6B.100d.txt',
     )
+    ..addOption(
+      'log-file',
+      help: 'Path to a log file.',
+      defaultsTo: '/Users/filiph/dev/bespoke/filip_mcp/log.txt',
+    )
     ..addFlag('version', negatable: false, help: 'Print the tool version.');
 
   try {
@@ -55,6 +61,14 @@ Future<void> main(List<String> arguments) async {
       print('[VERBOSE] All arguments: ${parsedArgs.arguments}');
     }
 
+    final logFile = io.File(parsedArgs.option('log-file')!);
+    final logSink = logFile.openWrite(mode: io.FileMode.append);
+    final timestamp = DateTime.now();
+    Logger.root.onRecord.listen((record) {
+      logSink.writeln(record);
+    });
+    logSink.writeln('\n\n\n====== NEW LOG: $timestamp ======\n');
+
     final vectorSearchEngine = await VectorSearchEngine.initialize(
       glovePath: parsedArgs.option('embeddings-file')!,
       windowSize: 20,
@@ -65,6 +79,10 @@ Future<void> main(List<String> arguments) async {
     ObsidianServer.fromStreamChannel(
       vaultPath: parsedArgs.option('vault')!,
       vectorSearchEngine: vectorSearchEngine,
+      onDone: () {
+        logSink.writeln('------ CLOSING LOG: $timestamp ------');
+        logSink.close();
+      },
       channel: StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
           .transform(StreamChannelTransformer.fromCodec(utf8))
           .transformStream(const LineSplitter())
