@@ -54,13 +54,12 @@ class ObsidianVault {
   Future<void> _reindex() async {
     final directory = Directory(path);
 
-    final files = await directory
+    final files = directory
         .list(recursive: true)
         .where((e) => e is File && e.path.endsWith('.md'))
-        .cast<File>()
-        .toList();
+        .cast<File>();
 
-    final notes = await files.map(_noteFromFile).wait;
+    final notes = await files.asyncMap(_noteFromFile).toList();
     _notes.clear();
     _notes.addAll(notes);
 

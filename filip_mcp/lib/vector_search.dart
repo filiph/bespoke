@@ -4,8 +4,11 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:filip_mcp/scored_result.dart';
+import 'package:logging/logging.dart';
 
 import 'obsidian_note.dart';
+
+final _logger = Logger('VectorSearch');
 
 // /// Example usage
 // Future<void> main() async {
@@ -110,14 +113,14 @@ class VectorSearchEngine {
   ///
   /// [notes] is the list of [ObsidianNote] objects to index.
   Future<void> indexNotes(List<ObsidianNote> notes) async {
-    print('Indexing ${notes.length} notes...');
+    _logger.info('Indexing ${notes.length} notes...');
     _noteEmbeddings.clear();
 
     for (final note in notes) {
       await indexNote(note);
     }
 
-    print(
+    _logger.info(
       'Indexed ${_noteEmbeddings.length} text segments from ${notes.length} notes',
     );
   }
@@ -133,7 +136,7 @@ class VectorSearchEngine {
   List<ScoredResult> search(String query, {int topK = 5}) {
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
     if (queryEmbedding == null) {
-      print('Query contains no recognizable words');
+      _logger.warning('Query contains no recognizable words');
       return [];
     }
 
@@ -282,7 +285,7 @@ class _WordEmbeddingManager {
 
   /// Load GloVe embeddings from file
   Future<void> loadFromFile(String path) async {
-    print('Loading word embeddings from $path...');
+    _logger.info('Loading word embeddings from $path...');
     final file = File(path);
     if (!await file.exists()) {
       throw FileSystemException('Embeddings file not found', path);
@@ -305,11 +308,11 @@ class _WordEmbeddingManager {
       count++;
 
       if (count % 10000 == 0) {
-        print('Loaded $count words...');
+        _logger.info('Loaded $count words...');
       }
     }
 
-    print(
+    _logger.info(
       'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions',
     );
   }

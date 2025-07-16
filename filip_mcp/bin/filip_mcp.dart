@@ -51,7 +51,6 @@ Future<void> main(List<String> arguments) async {
     }
 
     // Act on the arguments provided.
-    print('Positional arguments: ${parsedArgs.rest}');
     if (verbose) {
       print('[VERBOSE] All arguments: ${parsedArgs.arguments}');
     }

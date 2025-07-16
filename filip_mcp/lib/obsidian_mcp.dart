@@ -11,70 +11,35 @@ import 'obsidian_vault.dart';
 /// Allows querying a database of notes.
 final class ObsidianServer extends MCPServer
     with LoggingSupport, RootsTrackingSupport, ToolsSupport {
+  static final noteSearchResultSchema = Schema.object(
+    title: 'Description of a found note',
+    description:
+        "Object returned by a query or listing "
+        "that represents a user's note. "
+        "Doesn't contain the full note, only the relevant parts.",
+    properties: {
+      'title': Schema.string(title: 'title', description: "The note's title"),
+      'createdAt': Schema.combined(
+        title: 'createdAt',
+        description:
+            "The date on which the note was created, in ISO-8601 format.",
+        oneOf: [Schema.nil(), Schema.string()],
+      ),
+      'snippet': Schema.string(
+        title: 'snippet',
+        description:
+            "A limited snippet of content. "
+            "Typically centered around the found string, "
+            "or at the top of the note.",
+      ),
+      'score': Schema.num(
+        title: 'score',
+        description: "The score of the match. Higher is better.",
+      ),
+    },
+  );
+
   final ObsidianVault _vault;
-
-  ObsidianServer.fromStreamChannel({
-    required String vaultPath,
-    required VectorSearchEngine vectorSearchEngine,
-    required StreamChannel<String> channel,
-  }) : _vault = ObsidianVault(vaultPath, vectorSearchEngine),
-       super.fromStreamChannel(
-         channel,
-         implementation: Implementation(
-           name: 'obsidian notes',
-           version: '0.0.1',
-         ),
-       );
-
-  @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    await _vault.initialize();
-    registerTool(queryTool, _query);
-    return super.initialize(request);
-  }
-
-  Future<CallToolResult> _query(CallToolRequest request) async {
-    final searchPhrase = request.arguments!['searchPhrase'] as String?;
-
-    final createdAfterString = request.arguments!['createdAfter'] as String?;
-    final createdAfter = createdAfterString != null
-        ? ObsidianNote.extractCreatedAtFromString(createdAfterString)
-        : null;
-
-    final createdBeforeString = request.arguments!['createdBefore'] as String?;
-    final createdBefore = createdBeforeString != null
-        ? ObsidianNote.extractCreatedAtFromString(createdBeforeString)
-        : null;
-
-    final query = ObsidianQuery(
-      searchPhrase: searchPhrase,
-      createdAfter: createdAfter,
-      createdBefore: createdBefore,
-    );
-
-    try {
-      final results = await _vault.query(query);
-      return CallToolResult(
-        content: [],
-        structuredContent: {
-          'results': [
-            for (final result in results)
-              {
-                'title': result.title,
-                'createdAt': result.createdAt?.toIso8601String(),
-                'snippet': result.matchedText,
-                'score': result.score,
-              },
-          ],
-        },
-      );
-    } catch (e) {
-      return CallToolResult(
-        content: [TextContent(text: e.toString())],
-        isError: true,
-      );
-    }
-  }
 
   final queryTool = Tool(
     name: 'query',
@@ -142,30 +107,78 @@ final class ObsidianServer extends MCPServer
     annotations: ToolAnnotations(readOnlyHint: true),
   );
 
-  static final noteSearchResultSchema = Schema.object(
-    title: 'Description of a found note',
-    description:
-        "Object returned by a query or listing "
-        "that represents a user's note. "
-        "Doesn't contain the full note, only the relevant parts.",
-    properties: {
-      'title': Schema.string(title: 'title', description: "The note's title"),
-      'createdAt': Schema.string(
-        title: 'createdAt',
-        description:
-            "The date on which the note was created, in ISO-8601 format.",
-      ),
-      'snippet': Schema.string(
-        title: 'snippet',
-        description:
-            "A limited snippet of content. "
-            "Typically centered around the found string, "
-            "or at the top of the note.",
-      ),
-      'score': Schema.num(
-        title: 'score',
-        description: "The score of the match. Higher is better.",
-      ),
-    },
-  );
+  ObsidianServer.fromStreamChannel({
+    required String vaultPath,
+    required VectorSearchEngine vectorSearchEngine,
+    required StreamChannel<String> channel,
+  }) : _vault = ObsidianVault(vaultPath, vectorSearchEngine),
+       super.fromStreamChannel(
+         channel,
+         instructions:
+             "Ask this server questions about the user's database of notes.",
+         implementation: Implementation(
+           name: 'obsidian notes',
+           version: '0.0.1',
+         ),
+       );
+
+  @override
+  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+    await _vault.initialize();
+    registerTool(queryTool, _query, validateArguments: true);
+    return super.initialize(request);
+  }
+
+  Future<CallToolResult> _query(CallToolRequest request) async {
+    final searchPhrase = request.arguments!['searchPhrase'] as String?;
+
+    final createdAfterString = request.arguments!['createdAfter'] as String?;
+    final createdAfter = createdAfterString != null
+        ? ObsidianNote.extractCreatedAtFromString(createdAfterString)
+        : null;
+
+    final createdBeforeString = request.arguments!['createdBefore'] as String?;
+    final createdBefore = createdBeforeString != null
+        ? ObsidianNote.extractCreatedAtFromString(createdBeforeString)
+        : null;
+
+    final query = ObsidianQuery(
+      searchPhrase: searchPhrase,
+      createdAfter: createdAfter,
+      createdBefore: createdBefore,
+    );
+
+    try {
+      final results = await _vault.query(query);
+      return CallToolResult(
+        content: [
+          for (final (index, result) in results.indexed)
+            TextContent(
+              text:
+                  '#${index + 1}) '
+                  'Result with score ${result.score} '
+                  'created at ${result.createdAt?.toIso8601String()} '
+                  'with title "${result.title}". '
+                  'Snippet: ... ${result.matchedText} ...',
+            ),
+        ],
+        structuredContent: {
+          'results': [
+            for (final result in results)
+              {
+                'title': result.title,
+                'createdAt': result.createdAt?.toIso8601String(),
+                'snippet': result.matchedText,
+                'score': result.score,
+              },
+          ],
+        },
+      );
+    } catch (e) {
+      return CallToolResult(
+        content: [TextContent(text: e.toString())],
+        isError: true,
+      );
+    }
+  }
 }

@@ -10,6 +10,7 @@ dependencies:
   args: ^2.7.0
   async: ^2.13.0
   dart_mcp: ^0.3.0
+  logging: ^1.2.0
   meta: ^1.17.0
   path: ^1.9.1
   stream_channel: ^2.1.4
