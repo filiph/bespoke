@@ -7,6 +7,7 @@ import 'package:meta/meta.dart';
 
 import 'obsidian_note.dart';
 import 'obsidian_query.dart';
+import 'ordered_results_list.dart';
 import 'scored_result.dart';
 
 class ObsidianVault {
@@ -36,15 +37,18 @@ class ObsidianVault {
     _log.info('Vault initialized');
   }
 
-  Future<List<ScoredResult>> query(ObsidianQuery query) async {
+  Future<OrderedResultsList> query(ObsidianQuery query) async {
     _log.info('Performing query: $query');
 
     final List<ScoredResult> results;
     final limit = query.limit;
 
+    // Store the total number of results before applying filters
+    final int totalResults;
+
     final searchPhrase = query.searchPhrase;
     if (searchPhrase != null) {
-      results = vectorSearchEngine.search(
+      (results, totalResults) = vectorSearchEngine.search(
         searchPhrase,
         topK: query.limit ?? 100,
         createdAfter: query.createdAfter,
@@ -60,28 +64,34 @@ class ObsidianVault {
             ),
           )
           .toList();
+
+      final createdAfter = query.createdAfter;
+      if (createdAfter != null) {
+        results.removeWhere((r) => r.createdAt?.isBefore(createdAfter) ?? true);
+        _log.fine('After applying createdAfter: ${results.length}');
+      }
+
+      final createdBefore = query.createdBefore;
+      if (createdBefore != null) {
+        results.removeWhere((r) => r.createdAt?.isAfter(createdBefore) ?? true);
+        _log.fine('After applying createdBefore: ${results.length}');
+      }
+
+      totalResults = results.length;
     }
 
     _log.fine('Found ${results.length} raw results.');
-
-    final createdAfter = query.createdAfter;
-    if (createdAfter != null) {
-      results.removeWhere((r) => r.createdAt?.isBefore(createdAfter) ?? true);
-      _log.fine('After applying createdAfter: ${results.length}');
-    }
-
-    final createdBefore = query.createdBefore;
-    if (createdBefore != null) {
-      results.removeWhere((r) => r.createdAt?.isAfter(createdBefore) ?? true);
-      _log.fine('After applying createdBefore: ${results.length}');
-    }
 
     if (limit != null && results.length > limit) {
       results.removeRange(limit, results.length);
       _log.fine('After applying limit: ${results.length}');
     }
 
-    return results;
+    return OrderedResultsList(
+      results: results,
+      totalResults: totalResults,
+      returnedResults: results.length,
+    );
   }
 
   Future<void> _reindex() async {

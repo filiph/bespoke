@@ -242,16 +242,18 @@ final class ObsidianServer extends MCPServer
     );
 
     try {
-      final results = await _vault.query(query);
+      final orderedResults = await _vault.query(query);
       return CallToolResult(
         content: [
           TextContent(
             text:
-                'The query has produced ${results.length} results. '
+                'The query has produced '
+                '${orderedResults.totalResults} total matches out of which '
+                '${orderedResults.returnedResults} are returned. '
                 "Use the provided path with the fetch tool "
-                "to get the note's full contents.",
+                "to get any note's full contents.",
           ),
-          for (final (index, result) in results.indexed)
+          for (final (index, result) in orderedResults.results.indexed)
             TextContent(
               text:
                   '- #${index + 1}) path="${result.path}"\n'
@@ -261,8 +263,10 @@ final class ObsidianServer extends MCPServer
             ),
         ],
         structuredContent: {
+          'totalResults': orderedResults.totalResults,
+          'returnedResults': orderedResults.returnedResults,
           'results': [
-            for (final result in results)
+            for (final result in orderedResults.results)
               {
                 'title': result.title,
                 'path': result.path,

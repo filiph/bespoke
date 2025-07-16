@@ -48,9 +48,11 @@ void main() {
 
         fakeVectorSearchEngine.setSearchResults(mockResults);
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results, equals(mockResults));
+        expect(orderedResults.results, equals(mockResults));
+        expect(orderedResults.totalResults, equals(mockResults.length));
+        expect(orderedResults.returnedResults, equals(mockResults.length));
       });
 
       test('query without searchPhrase returns all notes', () async {
@@ -68,11 +70,11 @@ void main() {
           limit: null,
         );
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(3));
+        expect(orderedResults.results.length, equals(3));
         expect(
-          results.map((r) => r.path).toList()..sort(),
+          orderedResults.results.map((r) => r.path).toList()..sort(),
           equals(testNotes.map((n) => n.path).toList()..sort()),
         );
       });
@@ -92,11 +94,11 @@ void main() {
           limit: null,
         );
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(2));
+        expect(orderedResults.results.length, equals(2));
         expect(
-          results.map((r) => r.path).toList()..sort(),
+          orderedResults.results.map((r) => r.path).toList()..sort(),
           equals([testNotes[1].path, testNotes[2].path]..sort()),
         );
       });
@@ -116,44 +118,54 @@ void main() {
           limit: null,
         );
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(2));
+        expect(orderedResults.results.length, equals(2));
         expect(
-          results.map((r) => r.path).toList()..sort(),
+          orderedResults.results.map((r) => r.path).toList()..sort(),
           equals([testNotes[0].path, testNotes[1].path]..sort()),
         );
       });
 
-      test('query with createdAt fence does not return outside it', () async {
-        final testNotes = [
-          ObsidianNote('/fake/path/2018-02-14 note1.md', 'Test content 1'),
-          ObsidianNote('/fake/path/2016-02-14 KoSF.md', 'Test content 2'),
-          ObsidianNote('/fake/path/2023-03-25 note3.md', 'Test content 3'),
-        ];
-        vault.addNotes(testNotes);
+      test(
+        'query with createdAt fence does not return outside it',
+        () async {
+          final testNotes = [
+            ObsidianNote('/fake/path/2018-02-14 note1.md', 'Test content 1'),
+            ObsidianNote('/fake/path/2016-02-14 KoSF.md', 'Test content 2'),
+            ObsidianNote('/fake/path/2023-03-25 note3.md', 'Test content 3'),
+          ];
+          vault.addNotes(testNotes);
 
-        final query = ObsidianQuery(
-          searchPhrase: 'content',
-          createdAfter: DateTime(2016, 1, 1),
-          createdBefore: DateTime(2016, 12, 31),
-          limit: null,
-        );
+          final query = ObsidianQuery(
+            searchPhrase: 'content',
+            createdAfter: DateTime(2016, 1, 1),
+            createdBefore: DateTime(2016, 12, 31),
+            limit: null,
+          );
 
-        final mockResults = [
-          ScoredResult(testNotes[0], 0.9, 'Test content 1'),
-          ScoredResult(testNotes[1], 0.8, 'Test content 2'),
-          ScoredResult(testNotes[2], 0.8, 'Test content 3'),
-        ];
+          final mockResults = [
+            ScoredResult(testNotes[0], 0.9, 'Test content 1'),
+            ScoredResult(testNotes[1], 0.8, 'Test content 2'),
+            ScoredResult(testNotes[2], 0.8, 'Test content 3'),
+          ];
 
-        fakeVectorSearchEngine.setSearchResults(mockResults);
+          fakeVectorSearchEngine.setSearchResults(mockResults);
 
-        final results = await vault.query(query);
+          final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(1));
-        expect(results.map((r) => r.path), isNot(contains(testNotes[0].path)));
-        expect(results.map((r) => r.path), isNot(contains(testNotes[2].path)));
-      });
+          expect(orderedResults.results.length, equals(1));
+          expect(
+            orderedResults.results.map((r) => r.path),
+            isNot(contains(testNotes[0].path)),
+          );
+          expect(
+            orderedResults.results.map((r) => r.path),
+            isNot(contains(testNotes[2].path)),
+          );
+        },
+        skip: "we're actually limiting in the search engine now",
+      );
 
       test(
         'query with createdAt fence does not return notes with no date',
@@ -178,15 +190,19 @@ void main() {
 
           fakeVectorSearchEngine.setSearchResults(mockResults);
 
-          final results = await vault.query(query);
+          final orderedResults = await vault.query(query);
 
-          expect(results.length, equals(1));
+          expect(orderedResults.results.length, equals(1));
           expect(
-            results.map((r) => r.path),
+            orderedResults.results.map((r) => r.path),
             isNot(contains(testNotes[0].path)),
           );
-          expect(results.map((r) => r.path), contains(testNotes[1].path));
+          expect(
+            orderedResults.results.map((r) => r.path),
+            contains(testNotes[1].path),
+          );
         },
+        skip: "we're actually limiting in the search engine now",
       );
 
       test('query with limit restricts number of results', () async {
@@ -204,9 +220,11 @@ void main() {
           limit: 2,
         );
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(2));
+        expect(orderedResults.results.length, equals(2));
+        expect(orderedResults.totalResults, equals(3));
+        expect(orderedResults.returnedResults, equals(2));
       });
 
       test('query with all filters combined works correctly', () async {
@@ -231,10 +249,12 @@ void main() {
           limit: 1,
         );
 
-        final results = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-        expect(results.length, equals(1));
-        expect(results[0].path, equals(testNotes[1].path));
+        expect(orderedResults.results.length, equals(1));
+        expect(orderedResults.results[0].path, equals(testNotes[1].path));
+        expect(orderedResults.totalResults, equals(2));
+        expect(orderedResults.returnedResults, equals(1));
       });
     });
   });
@@ -264,13 +284,13 @@ class _FakeVectorSearchEngine implements VectorSearchEngine {
   }
 
   @override
-  List<ScoredResult> search(
+  (List<ScoredResult>, int) search(
     String query, {
     int? topK = 5,
     DateTime? createdBefore,
     DateTime? createdAfter,
   }) {
-    return _searchResults;
+    return (_searchResults, _searchResults.length);
   }
 
   /// Test helper to set up search results

@@ -135,7 +135,7 @@ class VectorSearchEngine {
   /// Returns a growable list of [ScoredResult] objects.
   /// Each result contains the note, the similarity score,
   /// and the specific text segment that best matched the query.
-  List<ScoredResult> search(
+  (List<ScoredResult>, int) search(
     String query, {
     int topK = 5,
     DateTime? createdAfter,
@@ -144,7 +144,7 @@ class VectorSearchEngine {
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
     if (queryEmbedding == null) {
       _logger.warning('Query contains no recognizable words');
-      return [];
+      return ([], 0);
     }
 
     final results = <ScoredResult>[];
@@ -192,7 +192,7 @@ class VectorSearchEngine {
     results.sort((a, b) => b.score.compareTo(a.score));
 
     // Return top K results
-    return results.take(topK).toList();
+    return (results.take(topK).toList(), results.length);
   }
 
   void _addEmbedding(ObsidianNote note, String text) {
