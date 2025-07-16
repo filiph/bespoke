@@ -16,6 +16,10 @@ class ObsidianVault {
 
   ObsidianVault(this.path, this.vectorSearchEngine);
 
+  ObsidianNote? fetch(String path) {
+    return _notes.where((n) => n.path == path).singleOrNull;
+  }
+
   Future<void> initialize() async {
     await _reindex();
   }

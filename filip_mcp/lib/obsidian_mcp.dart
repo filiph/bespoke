@@ -41,6 +41,27 @@ final class ObsidianServer extends MCPServer
 
   final ObsidianVault _vault;
 
+  final fetchTool = Tool(
+    name: 'fetch',
+    description: "Returns the note provided by its path.",
+    inputSchema: Schema.object(
+      properties: {
+        'path': Schema.string(
+          title: 'path',
+          description:
+              "The path of the note. Ends with '.md'. "
+              "Can be obtained from a query search result, for example.",
+        ),
+      },
+    ),
+    // outputSchema: Schema.object(
+    //   title: 'Query results',
+    //   description: 'A list of search results',
+    //   properties: {'results': Schema.list(items: noteSearchResultSchema)},
+    // ),
+    annotations: ToolAnnotations(readOnlyHint: true),
+  );
+
   final queryTool = Tool(
     name: 'query',
     description: "Returns the user's notes that match the given query.",
@@ -100,7 +121,11 @@ final class ObsidianServer extends MCPServer
         'limit': Schema.combined(
           description:
               'The maximum number of results to return. '
-              'If null, then the limit is arbitrary but tends to be very large.',
+              'If null, then the limit is arbitrary '
+              'but tends to be very large. '
+              'You should generally limit the number of results '
+              'to something sane, like 10 items. '
+              'Only go further than that if really needed.',
           oneOf: [Schema.nil(), Schema.int()],
         ),
       },
@@ -133,7 +158,47 @@ final class ObsidianServer extends MCPServer
     log(LoggingLevel.info, 'Initializing vault.');
     await _vault.initialize();
     registerTool(queryTool, _query, validateArguments: true);
+    registerTool(fetchTool, _fetch, validateArguments: true);
     return super.initialize(request);
+  }
+
+  Future<CallToolResult> _fetch(CallToolRequest request) async {
+    final path = request.arguments!['path'] as String;
+
+    final note = _vault.fetch(path);
+
+    if (note == null) {
+      return CallToolResult(
+        content: [TextContent(text: 'Note with specified path not found.')],
+        isError: true,
+      );
+    }
+
+    return CallToolResult(
+      content: [
+        TextContent(text: 'Title: ${note.title}'),
+        TextContent(text: 'Created at: ${note.createdAt?.toIso8601String()}'),
+        TextContent(
+          text:
+              'Contents:\n'
+              '${note.contents}',
+        ),
+        // ResourceLink(
+        //   name: note.path,
+        //   title: note.title,
+        //   description:
+        //       'The note file itself. '
+        //       'Can be provided to the user for further inspection.',
+        //   mimeType: 'text/markdown',
+        //   uri: Uri.file(note.path).toString(),
+        // ),
+      ],
+      structuredContent: {
+        'title': note.title,
+        'createdAt': note.createdAt?.toIso8601String(),
+        'contents': note.contents,
+      },
+    );
   }
 
   Future<CallToolResult> _query(CallToolRequest request) async {
@@ -162,14 +227,19 @@ final class ObsidianServer extends MCPServer
       final results = await _vault.query(query);
       return CallToolResult(
         content: [
+          TextContent(
+            text:
+                'The query has produced ${results.length} results. '
+                "Use the provided path with the fetch tool "
+                "to get the note's full contents.",
+          ),
           for (final (index, result) in results.indexed)
             TextContent(
               text:
-                  '#${index + 1}) '
-                  'Result with score ${result.score} '
-                  'created at ${result.createdAt?.toIso8601String()} '
-                  'with title "${result.title}". '
-                  'Snippet: ... ${result.matchedText} ...',
+                  '- #${index + 1}) path="${result.path}"\n'
+                  '  Score: ${result.score.toStringAsFixed(3)}\n'
+                  '  Created at: ${result.createdAt?.toIso8601String()}\n'
+                  '  Snippet: ... ${result.matchedText} ...\n',
             ),
         ],
         structuredContent: {
@@ -177,6 +247,7 @@ final class ObsidianServer extends MCPServer
             for (final result in results)
               {
                 'title': result.title,
+                'path': result.path,
                 'createdAt': result.createdAt?.toIso8601String(),
                 'snippet': result.matchedText,
                 'score': result.score,
