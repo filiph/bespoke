@@ -46,5 +46,5 @@ class ObsidianNote {
 
   /// Regular expression to match a date tag at the beginning of a filename.
   /// Format: YYYY-MM-DD followed by a space.
-  static final RegExp _dateTag = RegExp(r'^(\d{4})-(\d{2})-(\d{2}) ');
+  static final RegExp _dateTag = RegExp(r'^(\d{4})-(\d{2})-(\d{2})');
 }
