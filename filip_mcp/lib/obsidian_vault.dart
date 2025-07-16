@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:filip_mcp/vector_search.dart';
+import 'package:meta/meta.dart';
 
 import 'obsidian_note.dart';
 import 'obsidian_query.dart';
@@ -15,6 +16,12 @@ class ObsidianVault {
   final VectorSearchEngine vectorSearchEngine;
 
   ObsidianVault(this.path, this.vectorSearchEngine);
+
+  /// Used in tests to avoid having to actually index the file system.
+  @visibleForTesting
+  void addNotes(Iterable<ObsidianNote> notes) {
+    _notes.addAll(notes);
+  }
 
   ObsidianNote? fetch(String path) {
     return _notes.where((n) => n.path == path).singleOrNull;
