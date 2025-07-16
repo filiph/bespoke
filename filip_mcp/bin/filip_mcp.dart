@@ -24,7 +24,7 @@ Future<void> main(List<String> arguments) async {
     ..addOption(
       'vault',
       help: 'Path to the vault.',
-      defaultsTo: '/Users/filiph/Google Drive/notes',
+      defaultsTo: '/Users/filiph/Google Drive/notes/memex',
     )
     ..addOption(
       'embeddings-file',

@@ -124,6 +124,7 @@ final class ObsidianServer extends MCPServer
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+    log(LoggingLevel.info, 'Initializing vault.');
     await _vault.initialize();
     registerTool(queryTool, _query, validateArguments: true);
     return super.initialize(request);
