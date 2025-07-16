@@ -47,6 +47,8 @@ class ObsidianVault {
       results = vectorSearchEngine.search(
         searchPhrase,
         topK: query.limit ?? 100,
+        createdAfter: query.createdAfter,
+        createdBefore: query.createdBefore,
       );
     } else {
       results = _notes

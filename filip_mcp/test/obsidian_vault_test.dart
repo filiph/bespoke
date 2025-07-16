@@ -264,7 +264,12 @@ class _FakeVectorSearchEngine implements VectorSearchEngine {
   }
 
   @override
-  List<ScoredResult> search(String query, {int? topK = 5}) {
+  List<ScoredResult> search(
+    String query, {
+    int? topK = 5,
+    DateTime? createdBefore,
+    DateTime? createdAfter,
+  }) {
     return _searchResults;
   }
 

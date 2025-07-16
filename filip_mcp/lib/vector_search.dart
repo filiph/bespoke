@@ -135,7 +135,12 @@ class VectorSearchEngine {
   /// Returns a growable list of [ScoredResult] objects.
   /// Each result contains the note, the similarity score,
   /// and the specific text segment that best matched the query.
-  List<ScoredResult> search(String query, {int topK = 5}) {
+  List<ScoredResult> search(
+    String query, {
+    int topK = 5,
+    DateTime? createdAfter,
+    DateTime? createdBefore,
+  }) {
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
     if (queryEmbedding == null) {
       _logger.warning('Query contains no recognizable words');
@@ -147,6 +152,16 @@ class VectorSearchEngine {
 
     // Calculate similarity for each text segment
     for (final textEmbedding in _noteEmbeddings) {
+      if (createdAfter != null &&
+          (textEmbedding.note.createdAt?.isBefore(createdAfter) ?? true)) {
+        continue;
+      }
+
+      if (createdBefore != null &&
+          (textEmbedding.note.createdAt?.isAfter(createdBefore) ?? true)) {
+        continue;
+      }
+
       final similarity = _embeddingManager.cosineSimilarity(
         queryEmbedding,
         textEmbedding.embedding,
