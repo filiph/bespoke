@@ -13,13 +13,13 @@ import 'scored_result.dart';
 class ObsidianVault {
   static final Logger _log = Logger('ObsidianVault');
 
-  final String path;
+  final String vaultPath;
 
   final List<ObsidianNote> _notes = [];
 
   final VectorSearchEngine vectorSearchEngine;
 
-  ObsidianVault(this.path, this.vectorSearchEngine);
+  ObsidianVault(this.vaultPath, this.vectorSearchEngine);
 
   /// Used in tests to avoid having to actually index the file system.
   @visibleForTesting
@@ -95,7 +95,7 @@ class ObsidianVault {
   }
 
   Future<void> _reindex() async {
-    final directory = Directory(path);
+    final directory = Directory(vaultPath);
 
     final files = directory
         .list(recursive: true)

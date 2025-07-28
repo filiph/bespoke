@@ -24,6 +24,9 @@ class ScoredResult {
       title = note.title,
       createdAt = note.createdAt;
 
+  @Deprecated("do not use, it won't work")
+  String get pathAsUri => Uri.file(path).toString();
+
   @override
   String toString() {
     return 'Score: ${score.toStringAsFixed(4)} - $matchedText ($title)';

@@ -19,6 +19,12 @@ final class ObsidianServer extends MCPServer
         "Doesn't contain the full note, only the relevant parts.",
     properties: {
       'title': Schema.string(title: 'title', description: "The note's title"),
+      'pathForFetch': Schema.string(
+        title: 'pathForFetch',
+        description:
+            "The file path that can be used when calling the fetch tool. "
+            "You cannot access this path in a browser, nor can you embed it.",
+      ),
       'createdAt': Schema.combined(
         title: 'createdAt',
         description:
@@ -45,7 +51,7 @@ final class ObsidianServer extends MCPServer
 
   final fetchTool = Tool(
     name: 'fetch',
-    description: "Returns the note provided by its path.",
+    description: "Returns the note provided by its file path.",
     inputSchema: Schema.object(
       properties: {
         'path': Schema.string(
@@ -252,7 +258,13 @@ final class ObsidianServer extends MCPServer
                 '${orderedResults.returnedResults} are returned '
                 '(sorted from best match to worst). '
                 "Use the provided path with the fetch tool "
-                "to get any note's full contents.",
+                "to get any note's full contents. "
+                "Note that you won't be able "
+                "to access the note's path directly. ",
+            // "But you are encouraged to provide a link to any note "
+            // "in the following format: "
+            // "obsidian://open?path=URI_ENCODED_PATH_TO_NOTE. "
+            // "(URI encoded means that forward slash must become %2F.)",
           ),
           for (final (index, result) in orderedResults.results.indexed)
             TextContent(
@@ -270,7 +282,7 @@ final class ObsidianServer extends MCPServer
             for (final result in orderedResults.results)
               {
                 'title': result.title,
-                'path': result.path,
+                'pathForFetch': result.path,
                 'createdAt': result.createdAt?.toIso8601String(),
                 'snippet': result.matchedText,
                 'score': result.score,
