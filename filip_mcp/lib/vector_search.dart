@@ -53,7 +53,7 @@ import 'word_embedding_serde.dart';
 
 /// Main vector search engine for notes
 class VectorSearchEngine {
-  static final Logger _logger = Logger('VectorSearchEngine');
+  static final Logger _log = Logger('VectorSearchEngine');
 
   final _WordEmbeddingManager _embeddingManager;
 
@@ -115,14 +115,14 @@ class VectorSearchEngine {
   ///
   /// [notes] is the list of [ObsidianNote] objects to index.
   Future<void> indexNotes(List<ObsidianNote> notes) async {
-    _logger.info('Indexing ${notes.length} notes...');
+    _log.info('Indexing ${notes.length} notes...');
     _noteEmbeddings.clear();
 
     for (final note in notes) {
       await indexNote(note);
     }
 
-    _logger.info(
+    _log.info(
       'Indexed ${_noteEmbeddings.length} text segments from ${notes.length} notes',
     );
   }
@@ -142,11 +142,9 @@ class VectorSearchEngine {
     DateTime? createdBefore,
     double similarityThreshold = 0.2,
   }) {
+    _log.fine('Searching for: "$query"');
+
     final queryEmbedding = _embeddingManager.computeEmbedding(query);
-    if (queryEmbedding == null) {
-      _logger.warning('Query contains no recognizable words');
-      return ([], 0);
-    }
 
     final results = <ScoredResult>[];
     final seenNotes = <String>{};
@@ -163,10 +161,19 @@ class VectorSearchEngine {
         continue;
       }
 
-      final similarity = _embeddingManager.cosineSimilarity(
-        queryEmbedding,
-        textEmbedding.embedding,
-      );
+      var similarity = queryEmbedding != null
+          ? _embeddingManager.cosineSimilarity(
+              queryEmbedding,
+              textEmbedding.embedding,
+            )
+          : 0.0;
+
+      if (textEmbedding.text.contains(query.toLowerCase())) {
+        // Exact match.
+        _log.fine('Exact match on ${textEmbedding.text}');
+        const exactMatchBonus = 0.5;
+        similarity += exactMatchBonus;
+      }
 
       if (similarity < similarityThreshold) continue;
 
@@ -206,8 +213,6 @@ class VectorSearchEngine {
   }
 
   /// Tokenizes text into words for processing.
-  ///
-  /// This is exposed for testing purposes.
   List<String> _tokenize(String text) {
     return text
         .toLowerCase()
