@@ -259,8 +259,8 @@ final class ObsidianServer extends MCPServer
                 '(sorted from best match to worst). '
                 "Use the provided path with the fetch tool "
                 "to get any note's full contents. "
-                "Note that you won't be able "
-                "to access the note's path directly. ",
+                "Do not try to access the note's path directly, "
+                "and also don't try to embed it. ",
             // "But you are encouraged to provide a link to any note "
             // "in the following format: "
             // "obsidian://open?path=URI_ENCODED_PATH_TO_NOTE. "
