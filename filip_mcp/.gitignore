@@ -9,3 +9,7 @@ log.txt
 glove/*.zip
 glove/*.txt
 glove/*.txt.bin
+
+# Do not add executables to git.
+*.exe
+
