@@ -32,8 +32,10 @@ class ObsidianVault {
     return _notes.where((n) => n.path == path).singleOrNull;
   }
 
-  Future<void> initialize() async {
-    await _reindex();
+  Future<void> initialize({
+    void Function(int processed, int total, String status)? onProgress,
+  }) async {
+    await _reindex(onProgress: onProgress);
     _log.info('Vault initialized');
   }
 
@@ -48,7 +50,7 @@ class ObsidianVault {
 
     final searchPhrase = query.searchPhrase;
     if (searchPhrase != null) {
-      (results, totalResults) = vectorSearchEngine.search(
+      (results, totalResults) = await vectorSearchEngine.search(
         searchPhrase,
         topK: query.limit ?? 100,
         createdAfter: query.createdAfter,
@@ -94,7 +96,9 @@ class ObsidianVault {
     );
   }
 
-  Future<void> _reindex() async {
+  Future<void> _reindex({
+    void Function(int processed, int total, String status)? onProgress,
+  }) async {
     final directory = Directory(vaultPath);
 
     final files = directory
@@ -107,7 +111,7 @@ class ObsidianVault {
     _notes.addAll(notes);
 
     vectorSearchEngine.clear();
-    await notes.map((note) => vectorSearchEngine.indexNote(note)).wait;
+    await vectorSearchEngine.indexNotes(notes, onProgress: onProgress);
   }
 
   static Future<ObsidianNote> _noteFromFile(File file) async {

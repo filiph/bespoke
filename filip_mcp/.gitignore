@@ -5,10 +5,6 @@
 # Avoid pushing log file to git.
 log.txt
 
-# Do not add GloVe to git.
-glove/*.zip
-glove/*.txt
-glove/*.txt.bin
 
 # Do not add executables to git.
 *.exe

@@ -3,45 +3,16 @@ import 'dart:io' as io;
 
 import 'package:args/args.dart';
 import 'package:async/async.dart';
+import 'package:filip_mcp/cli_shared.dart';
 import 'package:filip_mcp/obsidian_mcp.dart';
 import 'package:filip_mcp/vector_search.dart';
-import 'package:logging/logging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 Future<void> main(List<String> arguments) async {
-  final argParser = ArgParser()
-    ..addFlag(
-      'help',
-      abbr: 'h',
-      negatable: false,
-      help: 'Print this usage information.',
-    )
-    ..addFlag(
-      'verbose',
-      abbr: 'v',
-      negatable: false,
-      help: 'Show additional command output.',
-    )
-    ..addOption(
-      'vault',
-      help: 'Path to the vault.',
-      defaultsTo: '/Users/filiph/Google Drive/notes/memex',
-    )
-    ..addOption(
-      'embeddings-file',
-      help: 'Path to the embeddings file.',
-      defaultsTo: '/Users/filiph/dev/bespoke/filip_mcp/glove/glove.6B.100d.txt',
-    )
-    ..addOption(
-      'log-file',
-      help: 'Path to a log file.',
-      defaultsTo: '/Users/filiph/dev/bespoke/filip_mcp/log.txt',
-    )
-    ..addFlag('version', negatable: false, help: 'Print the tool version.');
+  final argParser = buildBaseArgParser();
 
   try {
     final ArgResults parsedArgs = argParser.parse(arguments);
-    bool verbose = false;
 
     // Process the parsed arguments.
     if (parsedArgs.flag('help')) {
@@ -49,40 +20,34 @@ Future<void> main(List<String> arguments) async {
       return;
     }
     if (parsedArgs.flag('version')) {
-      print('filip_mcp version: $version');
+      print('filip_mcp version: $filipMcpVersion');
       return;
     }
-    if (parsedArgs.flag('verbose')) {
-      verbose = true;
-    }
 
-    // Act on the arguments provided.
-    if (verbose) {
-      print('[VERBOSE] All arguments: ${parsedArgs.arguments}');
-    }
+    final logSink = setupLogging(parsedArgs);
 
-    final logFile = io.File(parsedArgs.option('log-file')!);
-    final logSink = logFile.openWrite(mode: io.FileMode.append);
-    final timestamp = DateTime.now();
-    Logger.root.level = Level.FINE;
-    Logger.root.onRecord.listen((record) {
-      logSink.writeln(record);
-    });
-    logSink.writeln('\n\n\n====== NEW LOG: $timestamp ======\n');
+    final vaultPath = parsedArgs.option('vault')!;
+    final cacheFilePath =
+        parsedArgs.option('cache-file') ?? resolveDefaultCacheFile(vaultPath);
+    final ollamaUrl = parsedArgs.option('ollama-url')!;
+    final model = parsedArgs.option('model')!;
 
     final vectorSearchEngine = await VectorSearchEngine.initialize(
-      glovePath: parsedArgs.option('embeddings-file')!,
-      windowSize: 20,
-      windowOverlap: 10,
+      baseUrl: ollamaUrl,
+      model: model,
+      dimensions: 768,
+      windowSize: 300,
+      windowOverlap: 100,
+      cachePath: cacheFilePath,
     );
 
     // Start the server.
     ObsidianServer.fromStreamChannel(
-      vaultPath: parsedArgs.option('vault')!,
+      vaultPath: vaultPath,
       vectorSearchEngine: vectorSearchEngine,
       onDone: () {
-        logSink.writeln('------ CLOSING LOG: $timestamp ------');
-        logSink.close();
+        logSink?.writeln('------ CLOSING LOG ------');
+        logSink?.close();
       },
       channel: StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
           .transform(StreamChannelTransformer.fromCodec(utf8))
@@ -102,8 +67,6 @@ Future<void> main(List<String> arguments) async {
     _printUsage(argParser);
   }
 }
-
-const String version = '0.0.1';
 
 void _printUsage(ArgParser argParser) {
   print('Usage: dart filip_mcp.dart <flags> [arguments]');

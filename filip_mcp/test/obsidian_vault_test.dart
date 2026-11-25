@@ -127,45 +127,41 @@ void main() {
         );
       });
 
-      test(
-        'query with createdAt fence does not return outside it',
-        () async {
-          final testNotes = [
-            ObsidianNote('/fake/path/2018-02-14 note1.md', 'Test content 1'),
-            ObsidianNote('/fake/path/2016-02-14 KoSF.md', 'Test content 2'),
-            ObsidianNote('/fake/path/2023-03-25 note3.md', 'Test content 3'),
-          ];
-          vault.addNotes(testNotes);
+      test('query with createdAt fence does not return outside it', () async {
+        final testNotes = [
+          ObsidianNote('/fake/path/2018-02-14 note1.md', 'Test content 1'),
+          ObsidianNote('/fake/path/2016-02-14 KoSF.md', 'Test content 2'),
+          ObsidianNote('/fake/path/2023-03-25 note3.md', 'Test content 3'),
+        ];
+        vault.addNotes(testNotes);
 
-          final query = ObsidianQuery(
-            searchPhrase: 'content',
-            createdAfter: DateTime(2016, 1, 1),
-            createdBefore: DateTime(2016, 12, 31),
-            limit: null,
-          );
+        final query = ObsidianQuery(
+          searchPhrase: 'content',
+          createdAfter: DateTime(2016, 1, 1),
+          createdBefore: DateTime(2016, 12, 31),
+          limit: null,
+        );
 
-          final mockResults = [
-            ScoredResult(testNotes[0], 0.9, 'Test content 1'),
-            ScoredResult(testNotes[1], 0.8, 'Test content 2'),
-            ScoredResult(testNotes[2], 0.8, 'Test content 3'),
-          ];
+        final mockResults = [
+          ScoredResult(testNotes[0], 0.9, 'Test content 1'),
+          ScoredResult(testNotes[1], 0.8, 'Test content 2'),
+          ScoredResult(testNotes[2], 0.8, 'Test content 3'),
+        ];
 
-          fakeVectorSearchEngine.setSearchResults(mockResults);
+        fakeVectorSearchEngine.setSearchResults(mockResults);
 
-          final orderedResults = await vault.query(query);
+        final orderedResults = await vault.query(query);
 
-          expect(orderedResults.results.length, equals(1));
-          expect(
-            orderedResults.results.map((r) => r.path),
-            isNot(contains(testNotes[0].path)),
-          );
-          expect(
-            orderedResults.results.map((r) => r.path),
-            isNot(contains(testNotes[2].path)),
-          );
-        },
-        skip: "we're actually limiting in the search engine now",
-      );
+        expect(orderedResults.results.length, equals(1));
+        expect(
+          orderedResults.results.map((r) => r.path),
+          isNot(contains(testNotes[0].path)),
+        );
+        expect(
+          orderedResults.results.map((r) => r.path),
+          isNot(contains(testNotes[2].path)),
+        );
+      }, skip: "we're actually limiting in the search engine now");
 
       test(
         'query with createdAt fence does not return notes with no date',
@@ -277,20 +273,23 @@ class _FakeVectorSearchEngine implements VectorSearchEngine {
   }
 
   @override
-  Future<void> indexNotes(List<ObsidianNote> notes) async {
+  Future<void> indexNotes(
+    List<ObsidianNote> notes, {
+    void Function(int processed, int total, String status)? onProgress,
+  }) async {
     for (final note in notes) {
       await indexNote(note);
     }
   }
 
   @override
-  (List<ScoredResult>, int) search(
+  Future<(List<ScoredResult>, int)> search(
     String query, {
     int? topK = 5,
     DateTime? createdBefore,
     DateTime? createdAfter,
     double similarityThreshold = 0.2,
-  }) {
+  }) async {
     return (_searchResults, _searchResults.length);
   }
 

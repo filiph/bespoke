@@ -1,75 +1,61 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
-import 'package:filip_mcp/scored_result.dart';
 import 'package:logging/logging.dart';
+import 'package:ollama_dart/ollama_dart.dart';
 
+import 'embedding_cache.dart';
 import 'obsidian_note.dart';
-import 'word_embedding_serde.dart';
+import 'scored_result.dart';
 
-// /// Example usage
-// Future<void> main() async {
-//   // Initialize the search engine with custom window settings
-//   final searchEngine = await VectorSearchEngine.initialize(
-//     glovePath: 'path/to/glove.6B.100d.txt',
-//     dimensions: 100,
-//     windowSize: 50,
-//     windowOverlap: 25,
-//   );
-//
-//   // Load sample notes
-//   final notes = [
-//     ObsidianNote.create(
-//       '2023-01-15 Machine Learning.md',
-//       'Machine learning is a field of study that gives computers the ability to learn '
-//           'without being explicitly programmed. The process involves algorithms that '
-//           'can analyze and draw inferences from patterns in data.',
-//     ),
-//     ObsidianNote.create(
-//       '2023-02-20 Natural Language Processing.md',
-//       'Natural language processing (NLP) is a subfield of linguistics, computer science, '
-//           'and artificial intelligence concerned with the interactions between computers and '
-//           'human language. It involves programming computers to process large amounts of '
-//           'natural language data.',
-//     ),
-//   ];
-//
-//   // Index the notes
-//   await searchEngine.indexNotes(notes);
-//
-//   // Search for relevant notes
-//   final results = searchEngine.search(
-//     'AI and computers understanding language',
-//     topK: 2,
-//   );
-//
-//   // Display results
-//   for (final result in results) {
-//     print(result);
-//   }
-// }
+extension Float32VectorOps on Float32List {
+  /// Computes dot product between two float32 vectors.
+  /// For L2-normalized vectors (as returned by Ollama), dot product equals cosine similarity.
+  double dotProduct(Float32List other) {
+    if (length != other.length) {
+      throw ArgumentError(
+        'Vector dimensions must match ($length != ${other.length})',
+      );
+    }
+    var sum = 0.0;
+    for (var i = 0; i < length; i++) {
+      sum += this[i] * other[i];
+    }
+    return sum;
+  }
+}
 
-/// Main vector search engine for notes
+/// Main vector search engine for notes using local Ollama embeddings.
 class VectorSearchEngine {
   static final Logger _log = Logger('VectorSearchEngine');
 
-  final _WordEmbeddingManager _embeddingManager;
+  final OllamaClient _client;
+  final String _model;
+  final int _dimensions;
+  final int _windowSize; // words per window
+  final int _windowOverlap; // overlapping words between windows
+  final String? _cachePath;
+  final EmbeddingCache? _cache;
 
   final List<_TextEmbedding> _noteEmbeddings = [];
 
-  // Sliding window configuration
-  final int _windowSize; // words per window
-  final int _windowOverlap; // overlapping words between windows
-
-  VectorSearchEngine._(
-    this._embeddingManager, {
-    int windowSize = 100,
-    int windowOverlap = 50,
-  }) : _windowSize = windowSize,
-       _windowOverlap = windowOverlap {
-    // Validate window parameters
+  VectorSearchEngine._({
+    required OllamaClient client,
+    required String model,
+    required int dimensions,
+    required int windowSize,
+    required int windowOverlap,
+    String? cachePath,
+    EmbeddingCache? cache,
+  }) : _client = client,
+       _model = model,
+       _dimensions = dimensions,
+       _windowSize = windowSize,
+       _windowOverlap = windowOverlap,
+       _cachePath = cachePath,
+       _cache = cache {
     if (_windowSize <= 0) {
       throw ArgumentError('Window size must be positive');
     }
@@ -80,76 +66,242 @@ class VectorSearchEngine {
     }
   }
 
-  /// Indexes a single note using the configured sliding window approach.
-  ///
-  /// The note is split into overlapping text segments according to the
-  /// window size and overlap settings. Each segment is then converted to
-  /// a vector embedding for semantic search.
-  ///
-  /// [note] is the [ObsidianNote] to index.
-  Future<void> indexNote(ObsidianNote note) async {
-    final words = _tokenize(note.contents);
-
-    if (words.length < _windowSize / 2) {
-      // For very small notes, just index the entire content
-      _addEmbedding(note, note.contents);
-    } else {
-      // Use sliding window approach
-      for (int i = 0; i < words.length; i += _windowSize - _windowOverlap) {
-        final end = min(i + _windowSize, words.length);
-        final windowText = words.sublist(i, end).join(' ');
-
-        // Add window as a separate embedding
-        _addEmbedding(note, windowText);
-
-        if (end >= words.length) break;
-      }
+  /// Initializes the search engine with an Ollama client and optional cache.
+  static Future<VectorSearchEngine> initialize({
+    String baseUrl = 'http://localhost:11434',
+    String model = 'embeddinggemma-2',
+    int dimensions = 768,
+    int windowSize = 300,
+    int windowOverlap = 100,
+    String? cachePath,
+    OllamaClient? client,
+  }) async {
+    final ollamaClient =
+        client ?? OllamaClient(config: OllamaConfig(baseUrl: baseUrl));
+    EmbeddingCache? cache;
+    if (cachePath != null) {
+      cache = await EmbeddingCache.load(cachePath, dimensions: dimensions);
     }
+
+    return VectorSearchEngine._(
+      client: ollamaClient,
+      model: model,
+      dimensions: dimensions,
+      windowSize: windowSize,
+      windowOverlap: windowOverlap,
+      cachePath: cachePath,
+      cache: cache,
+    );
   }
 
-  /// Indexes a list of notes using the configured sliding window approach.
-  ///
-  /// Each note is split into overlapping text segments according to the
-  /// window size and overlap settings. Each segment is then converted to
-  /// a vector embedding for semantic search.
-  ///
-  /// [notes] is the list of [ObsidianNote] objects to index.
-  Future<void> indexNotes(List<ObsidianNote> notes) async {
+  /// Tokenizes text into word tokens preserving punctuation and case.
+  static List<String> _tokenize(String text) {
+    return text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+  }
+
+  /// Splits a note into sliding window segments of words.
+  List<String> _extractSegments(String text) {
+    final words = _tokenize(text);
+    if (words.isEmpty) {
+      return const [];
+    }
+    if (words.length <= _windowSize) {
+      final trimmed = text.trim();
+      return trimmed.isNotEmpty ? [trimmed] : const [];
+    }
+
+    final segments = <String>[];
+    for (int i = 0; i < words.length; i += _windowSize - _windowOverlap) {
+      final end = min(i + _windowSize, words.length);
+      final segmentText = words.sublist(i, end).join(' ').trim();
+      if (segmentText.isNotEmpty) {
+        segments.add(segmentText);
+      }
+      if (end >= words.length) break;
+    }
+    return segments;
+  }
+
+  /// Embeds a batch of texts using Ollama.
+  Future<List<Float32List>> _embedBatch(List<String> texts) async {
+    if (texts.isEmpty) return [];
+
+    final response = await _client.embeddings.create(
+      request: EmbedRequest(model: _model, input: EmbedInput.list(texts)),
+    );
+
+    final embeddings = response.embeddings;
+    if (embeddings == null) {
+      throw StateError('Ollama returned no embeddings in response.');
+    }
+
+    return embeddings.map((vec) => Float32List.fromList(vec)).toList();
+  }
+
+  /// Indexes a single note.
+  Future<void> indexNote(ObsidianNote note) async {
+    await indexNotes([note]);
+  }
+
+  /// Indexes a list of notes using cached embeddings where possible and
+  /// batching embedding generation for new or modified notes.
+  Future<void> indexNotes(
+    List<ObsidianNote> notes, {
+    void Function(int processed, int total, String status)? onProgress,
+  }) async {
     _log.info('Indexing ${notes.length} notes...');
     _noteEmbeddings.clear();
 
+    final toEmbed = <(ObsidianNote, int, List<String>)>[];
+    final validPaths = <String>{};
+    var cachedNotesCount = 0;
+
     for (final note in notes) {
-      await indexNote(note);
+      validPaths.add(note.path);
+      final file = File(note.path);
+      int mtime = 0;
+      if (file.existsSync()) {
+        mtime = file.statSync().modified.millisecondsSinceEpoch;
+      }
+
+      final cached = _cache?.getNote(note.path);
+      if (cached != null && cached.lastModifiedMs >= mtime && mtime > 0) {
+        cachedNotesCount++;
+        for (final seg in cached.segments) {
+          _noteEmbeddings.add(_TextEmbedding(seg.text, seg.embedding, note));
+        }
+      } else {
+        final segments = _extractSegments(note.contents);
+        toEmbed.add((note, mtime, segments));
+      }
+    }
+
+    if (toEmbed.isNotEmpty) {
+      _log.info(
+        'Found ${toEmbed.length} notes requiring embedding computation.',
+      );
+
+      // Collect all segments with note association and prep per-note cache
+      final noteSegmentsMap = <String, List<CachedSegment>>{};
+      final allSegments = <(ObsidianNote, int, String)>[];
+      for (final (note, mtime, segments) in toEmbed) {
+        noteSegmentsMap[note.path] = <CachedSegment>[];
+        for (final seg in segments) {
+          final trimmed = seg.trim();
+          if (trimmed.isNotEmpty) {
+            allSegments.add((note, mtime, trimmed));
+          }
+        }
+      }
+
+      const batchSize = 64;
+      var lastSave = DateTime.now();
+
+      for (int i = 0; i < allSegments.length; i += batchSize) {
+        final end = min(i + batchSize, allSegments.length);
+        final batch = allSegments.sublist(i, end);
+        final texts = batch.map((item) => item.$3).toList();
+
+        final vectors = await _embedBatch(texts);
+
+        for (int j = 0; j < batch.length; j++) {
+          final (note, _, text) = batch[j];
+          final vec = vectors[j];
+          _noteEmbeddings.add(_TextEmbedding(text, vec, note));
+          noteSegmentsMap[note.path]?.add(CachedSegment(text, vec));
+        }
+
+        onProgress?.call(
+          end,
+          allSegments.length,
+          'Embedding text segments ($end / ${allSegments.length})',
+        );
+
+        // Periodically save intermediate cache every 30 seconds
+        if (_cache != null &&
+            _cachePath != null &&
+            DateTime.now().difference(lastSave).inSeconds >= 30) {
+          for (final (note, mtime, _) in toEmbed) {
+            final segs = noteSegmentsMap[note.path];
+            if (segs != null && segs.isNotEmpty) {
+              _cache.putNote(
+                CachedNote(
+                  path: note.path,
+                  lastModifiedMs: mtime,
+                  segments: segs,
+                ),
+              );
+            }
+          }
+          await _cache.save(_cachePath, dimensions: _dimensions);
+          lastSave = DateTime.now();
+        }
+      }
+
+      // Update cache for all notes in toEmbed (including empty notes)
+      if (_cache != null) {
+        for (final (note, mtime, _) in toEmbed) {
+          final noteSegments = noteSegmentsMap[note.path] ?? const [];
+          _cache.putNote(
+            CachedNote(
+              path: note.path,
+              lastModifiedMs: mtime,
+              segments: noteSegments,
+            ),
+          );
+        }
+      }
+    }
+
+    if (_cache != null) {
+      _cache.removeNotesNotIn(validPaths);
+      if (_cachePath != null && toEmbed.isNotEmpty) {
+        await _cache.save(_cachePath, dimensions: _dimensions);
+      }
     }
 
     _log.info(
-      'Indexed ${_noteEmbeddings.length} text segments from ${notes.length} notes',
+      'Indexed ${_noteEmbeddings.length} text segments from ${notes.length} notes '
+      '($cachedNotesCount reused from cache, ${toEmbed.length} newly embedded).',
     );
   }
 
   /// Searches for notes that semantically match the query.
-  ///
-  /// [query] is the search phrase to find in the indexed notes.
-  /// [topK] is the maximum number of results to return (default: 5).
-  ///
-  /// Returns a growable list of [ScoredResult] objects.
-  /// Each result contains the note, the similarity score,
-  /// and the specific text segment that best matched the query.
-  (List<ScoredResult>, int) search(
+  Future<(List<ScoredResult>, int)> search(
     String query, {
     int topK = 5,
     DateTime? createdAfter,
     DateTime? createdBefore,
     double similarityThreshold = 0.2,
-  }) {
+  }) async {
     _log.fine('Searching for: "$query"');
 
-    final queryEmbedding = _embeddingManager.computeEmbedding(query);
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) {
+      return (<ScoredResult>[], 0);
+    }
+
+    final queryResponse = await _client.embeddings.create(
+      request: EmbedRequest(
+        model: _model,
+        input: EmbedInput.string(trimmedQuery),
+      ),
+    );
+
+    final queryVectorList = queryResponse.embedding;
+    if (queryVectorList == null || queryVectorList.isEmpty) {
+      return (<ScoredResult>[], 0);
+    }
+    final queryVector = Float32List.fromList(queryVectorList);
 
     final results = <ScoredResult>[];
     final seenNotes = <String>{};
+    final lowerQuery = query.toLowerCase();
 
-    // Calculate similarity for each text segment
     for (final textEmbedding in _noteEmbeddings) {
       if (createdAfter != null &&
           (textEmbedding.note.createdAt?.isBefore(createdAfter) ?? true)) {
@@ -161,88 +313,36 @@ class VectorSearchEngine {
         continue;
       }
 
-      var similarity = queryEmbedding != null
-          ? _embeddingManager.cosineSimilarity(
-              queryEmbedding,
-              textEmbedding.embedding,
-            )
-          : 0.0;
+      var similarity = queryVector.dotProduct(textEmbedding.embedding);
 
-      if (textEmbedding.text.contains(query.toLowerCase())) {
-        // Exact match.
-        _log.fine('Exact match on ${textEmbedding.text}');
+      if (textEmbedding.text.toLowerCase().contains(lowerQuery)) {
         const exactMatchBonus = 0.5;
         similarity += exactMatchBonus;
       }
 
       if (similarity < similarityThreshold) continue;
 
-      // Only add unique notes to results
       if (!seenNotes.contains(textEmbedding.note.path)) {
         results.add(
           ScoredResult(textEmbedding.note, similarity, textEmbedding.text),
         );
         seenNotes.add(textEmbedding.note.path);
       } else {
-        // If we've seen this note before, update score if this segment is more relevant
-        final existingResult = results.firstWhere(
-          (result) => result.path == textEmbedding.note.path,
+        final existingIndex = results.indexWhere(
+          (r) => r.path == textEmbedding.note.path,
         );
-
-        if (similarity > existingResult.score) {
-          results.remove(existingResult);
-          results.add(
-            ScoredResult(textEmbedding.note, similarity, textEmbedding.text),
+        if (existingIndex != -1 && similarity > results[existingIndex].score) {
+          results[existingIndex] = ScoredResult(
+            textEmbedding.note,
+            similarity,
+            textEmbedding.text,
           );
         }
       }
     }
 
-    // Sort by score (highest first).
     results.sort((a, b) => b.score.compareTo(a.score));
-
-    // Return top K results
     return (results.take(topK).toList(), results.length);
-  }
-
-  void _addEmbedding(ObsidianNote note, String text) {
-    final embedding = _embeddingManager.computeEmbedding(text);
-    if (embedding != null) {
-      _noteEmbeddings.add(_TextEmbedding(text, embedding, note));
-    }
-  }
-
-  /// Tokenizes text into words for processing.
-  List<String> _tokenize(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList();
-  }
-
-  /// Initializes the search engine with GloVe embeddings.
-  ///
-  /// [glovePath] is the file path to the GloVe embeddings file.
-  /// [dimensions] specifies the vector dimensions in the GloVe file (default: 100).
-  /// [windowSize] is the number of words in each window segment (default: 100).
-  /// [windowOverlap] is the number of words that overlap between consecutive windows (default: 50).
-  ///
-  /// Returns a [VectorSearchEngine] instance that's ready to index notes.
-  static Future<VectorSearchEngine> initialize({
-    required String glovePath,
-    int dimensions = 100,
-    int windowSize = 100,
-    int windowOverlap = 50,
-  }) async {
-    final manager = _WordEmbeddingManager(dimensions: dimensions);
-    await manager.loadFromFile(glovePath);
-    return VectorSearchEngine._(
-      manager,
-      windowSize: windowSize,
-      windowOverlap: windowOverlap,
-    );
   }
 
   void clear() {
@@ -250,166 +350,10 @@ class VectorSearchEngine {
   }
 }
 
-/// Vector representation of a text segment
 class _TextEmbedding {
   final String text;
-  final List<double> embedding;
+  final Float32List embedding;
   final ObsidianNote note;
 
   _TextEmbedding(this.text, this.embedding, this.note);
-}
-
-/// Handles word embeddings loading and vector operations
-class _WordEmbeddingManager {
-  final Map<int, List<double>> _wordVectors = {};
-  final int dimensions;
-  final Logger _logger = Logger('WordEmbeddingManager');
-
-  _WordEmbeddingManager({required this.dimensions});
-
-  /// Compute embedding for a text by averaging its word vectors
-  List<double>? computeEmbedding(String text) {
-    final words = _tokenize(text);
-    final validWords = words
-        .where((word) => _wordVectors.containsKey(word.hashCode))
-        .toList();
-
-    if (validWords.isEmpty) return null;
-
-    final result = List<double>.filled(dimensions, 0);
-
-    for (final word in validWords) {
-      final vector = _wordVectors[word.hashCode]!;
-      for (int i = 0; i < dimensions; i++) {
-        result[i] += vector[i];
-      }
-    }
-
-    // Normalize by dividing by the number of words
-    for (int i = 0; i < dimensions; i++) {
-      result[i] /= validWords.length;
-    }
-
-    return result;
-  }
-
-  /// Compute cosine similarity between two vectors
-  double cosineSimilarity(List<double> a, List<double> b) {
-    double dotProduct = 0;
-    double normA = 0;
-    double normB = 0;
-
-    for (int i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    if (normA == 0 || normB == 0) return 0;
-    return dotProduct / (sqrt(normA) * sqrt(normB));
-  }
-
-  /// Load GloVe embeddings from file
-  ///
-  /// If a binary version of the file exists at '$path.bin' and is newer than
-  /// the text file, it will load from the binary file for better performance.
-  /// Otherwise, it will load from the text file and save a binary version.
-  Future<void> loadFromFile(String path) async {
-    final textFile = File(path);
-    if (!await textFile.exists()) {
-      throw FileSystemException('Embeddings file not found', path);
-    }
-
-    final binaryPath = '$path.bin';
-    final binaryFile = File(binaryPath);
-    final binaryExists = await binaryFile.exists();
-
-    // Check if binary file exists and is newer than text file
-    if (binaryExists) {
-      final textStat = await textFile.stat();
-      final binaryStat = await binaryFile.stat();
-
-      if (binaryStat.modified.isAfter(textStat.modified)) {
-        _logger.info('Loading word embeddings from binary file $binaryPath...');
-        try {
-          final wordVectors = await WordEmbeddingSerde.loadFromBinaryFile(
-            binaryPath,
-            dimensions,
-          );
-
-          _wordVectors.clear();
-          _wordVectors.addEntries(wordVectors.entries);
-
-          _logger.info(
-            'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions from binary file',
-          );
-
-          return;
-        } catch (e) {
-          _logger.warning(
-            'Failed to load binary file: $e. Falling back to text file.',
-          );
-        }
-      }
-    }
-
-    // Load from text file
-    _logger.info('Loading word embeddings from text file $path...');
-    final lines = textFile
-        .openRead()
-        .transform(utf8.decoder)
-        .transform(LineSplitter());
-
-    _wordVectors.clear();
-    int count = 0;
-
-    final Map<int, String> wordHashes = {};
-    await for (final line in lines) {
-      final parts = line.split(' ');
-      if (parts.length != dimensions + 1) continue;
-
-      final word = parts[0].toLowerCase();
-      final vector = parts.sublist(1).map((s) => double.parse(s)).toList();
-
-      final int wordHash = word.hashCode;
-      if (wordHashes.containsKey(wordHash)) {
-        throw Exception(
-          'Hash collision detected: "$word" and "${wordHashes[wordHash]}" '
-          'have the same hash ($wordHash)',
-        );
-      }
-      _wordVectors[wordHash] = vector;
-      count++;
-
-      if (count % 10000 == 0) {
-        _logger.info('Loaded $count words...');
-      }
-    }
-
-    _logger.info(
-      'Loaded ${_wordVectors.length} word vectors with $dimensions dimensions from text file',
-    );
-
-    // Save to binary file for future use
-    try {
-      await WordEmbeddingSerde.saveToBinaryFile(
-        binaryPath,
-        _wordVectors,
-        dimensions,
-      );
-      _logger.info('Saved binary version to $binaryPath');
-    } catch (e) {
-      _logger.warning('Failed to save binary file: $e');
-    }
-  }
-
-  /// Simple tokenization - split text into lowercase words
-  List<String> _tokenize(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList();
-  }
 }
