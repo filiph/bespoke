@@ -72,15 +72,18 @@ final class ObsidianServer extends MCPServer
 
   final queryTool = Tool(
     name: 'query',
-    description: "Returns the user's notes that match the given query.",
+    description:
+        "Searches the user's notes using semantic vector embeddings. "
+        "Returns notes matching the meaning, topic, or conceptual description of the query.",
     inputSchema: Schema.object(
       properties: {
         'searchPhrase': Schema.combined(
           description:
-              'A fuzzy search phrase to use, or null. '
-              'Notes that contain the given phrase '
-              'or something semantically similar '
-              'will be returned with an appropriate similarity score. '
+              'A natural language query phrase describing the topic, concept, '
+              'or question to search for (e.g., "talks and conference presentations about Flutter", '
+              '"my thoughts on game design"). '
+              'Notes containing semantically similar concepts will be returned '
+              'with an appropriate similarity score. '
               'When null is given as the search phrase, '
               'all notes that conform to the other filters of this query '
               'will be returned.',
@@ -155,7 +158,14 @@ final class ObsidianServer extends MCPServer
        super.fromStreamChannel(
          channel,
          instructions:
-             "Ask this server questions about the user's database of notes.",
+             "Query and retrieve notes from the user's personal markdown knowledge base (vault). "
+             "The user you are interacting with is Filip Hracek, a Czech software developer. "
+             "Notes in the vault that are not web clippings and use the first person are Filip's own notes. "
+             "When searching for Filip's personal thoughts, opinions, or reflections on a topic, "
+             "search using first-person phrasing (e.g., 'my thoughts on X' rather than 'Filip\\'s thoughts on X'), "
+             "as people write their personal notes in the first person. "
+             "Note search is powered by dense semantic vector embeddings. "
+             "Formulate queries as natural language descriptions, concepts, topics, or questions.",
          implementation: Implementation(
            name: 'obsidian notes',
            version: '0.0.1',
