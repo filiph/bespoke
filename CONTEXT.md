@@ -20,6 +20,14 @@ _Avoid_: Chunk, slice, window
 A persistent local file in the user cache directory storing precomputed vector representations and note metadata to avoid recomputing unchanged notes across launches.
 _Avoid_: Index database, vector store, state file
 
+**Front Matter**:
+An optional YAML metadata block at the beginning of a Note, delimited by `---`, containing structured properties such as tags or creation dates.
+_Avoid_: Header, preamble, metadata block
+
+**Tag**:
+A case-insensitive identifier attached to a Note, either listed under the `tags` property in Front Matter or written inline as `#tag` within the Note body.
+_Avoid_: Label, category, keyword
+
 ## Flagged ambiguities
 
 - **Snippet vs Text Segment**: A Text Segment is the indexed sliding window of text within a Note, whereas a snippet is the formatted excerpt displayed in query results.

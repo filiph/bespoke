@@ -45,6 +45,40 @@ final class ObsidianServer extends MCPServer
     },
   );
 
+  static final noteListResultSchema = Schema.object(
+    title: 'Description of a listed note',
+    description:
+        "Object returned by note listing "
+        "that represents a user's note. "
+        "Contains note metadata, tags, and a snippet.",
+    properties: {
+      'title': Schema.string(title: 'title', description: "The note's title"),
+      'pathForFetch': Schema.string(
+        title: 'pathForFetch',
+        description:
+            "The file path that can be used when calling the fetch tool. "
+            "You cannot access this path in a browser, nor can you embed it.",
+      ),
+      'createdAt': Schema.combined(
+        title: 'createdAt',
+        description:
+            "The date on which the note was created or modified, in ISO-8601 format.",
+        oneOf: [Schema.nil(), Schema.string()],
+      ),
+      'tags': Schema.list(
+        title: 'tags',
+        description: "Tags associated with the note.",
+        items: Schema.string(),
+      ),
+      'snippet': Schema.string(
+        title: 'snippet',
+        description:
+            "A limited snippet of content. "
+            "Centered around the matched pattern if present, or at the top of the note.",
+      ),
+    },
+  );
+
   final void Function() onDone;
 
   final ObsidianVault _vault;
@@ -70,10 +104,13 @@ final class ObsidianServer extends MCPServer
     annotations: ToolAnnotations(readOnlyHint: true),
   );
 
-  final queryTool = Tool(
-    name: 'query',
+  final semanticQueryTool = Tool(
+    name: 'semantic_query',
     description:
         "Searches the user's notes using semantic vector embeddings. "
+        "Recommended as the default search tool for exploratory, conceptual, or topic queries, "
+        "and when searching for personal thoughts, opinions, or reflections "
+        "(especially because notes may be written in English or Czech or phrased differently). "
         "Returns notes matching the meaning, topic, or conceptual description of the query.",
     inputSchema: Schema.object(
       properties: {
@@ -149,6 +186,77 @@ final class ObsidianServer extends MCPServer
     annotations: ToolAnnotations(readOnlyHint: true),
   );
 
+  final listNotesTool = Tool(
+    name: 'list_notes',
+    description:
+        "Lists and filters notes from the user's vault by date range, tags, or exact/regex text pattern. "
+        "Results are ordered alphabetically by relative file path and support pagination with limit and offset. "
+        "Use this tool when looking for notes from specific dates (e.g. thoughts from around a date), "
+        "notes tagged with specific tags, or exact substring / regular expression matches. "
+        "Notes without a parseable creation date are excluded whenever from or to is set; "
+        "omit both to list all notes, including undated ones.",
+    inputSchema: Schema.object(
+      properties: {
+        'from': Schema.combined(
+          description:
+              'Filter notes created at or after this date (inclusive, start of day). '
+              'Accepts YYYY-MM-DD or ISO-8601 format. '
+              'Notes without a parseable creation date are excluded when this is set.',
+          oneOf: [Schema.nil(), Schema.string()],
+        ),
+        'to': Schema.combined(
+          description:
+              'Filter notes created at or before this date (inclusive, end of day). '
+              'Accepts YYYY-MM-DD or ISO-8601 format. '
+              'Notes without a parseable creation date are excluded when this is set.',
+          oneOf: [Schema.nil(), Schema.string()],
+        ),
+        'tags': Schema.combined(
+          description:
+              'List of tags that notes must contain (all tags must match, case-insensitive). '
+              'Can be specified with or without leading #.',
+          oneOf: [
+            Schema.nil(),
+            Schema.list(items: Schema.string()),
+          ],
+        ),
+        'pattern': Schema.combined(
+          description:
+              'A text string or regular expression to match against note title or content.',
+          oneOf: [Schema.nil(), Schema.string()],
+        ),
+        'isRegExp': Schema.combined(
+          description:
+              'Whether pattern should be evaluated as a regular expression. '
+              'Defaults to false (case-insensitive plain text substring match).',
+          oneOf: [Schema.nil(), Schema.bool()],
+        ),
+        'limit': Schema.combined(
+          description:
+              'The maximum number of results to return. Defaults to 20.',
+          oneOf: [Schema.nil(), Schema.int()],
+        ),
+        'offset': Schema.combined(
+          description:
+              'The number of matching notes to skip before returning results (for pagination). Defaults to 0.',
+          oneOf: [Schema.nil(), Schema.int()],
+        ),
+      },
+    ),
+    outputSchema: Schema.object(
+      title: 'List notes results',
+      description: 'A paginated list of note search results',
+      properties: {
+        'totalResults': Schema.int(),
+        'returnedResults': Schema.int(),
+        'offset': Schema.int(),
+        'hasMore': Schema.bool(),
+        'results': Schema.list(items: noteListResultSchema),
+      },
+    ),
+    annotations: ToolAnnotations(readOnlyHint: true),
+  );
+
   ObsidianServer.fromStreamChannel({
     required String vaultPath,
     required VectorSearchEngine vectorSearchEngine,
@@ -164,8 +272,11 @@ final class ObsidianServer extends MCPServer
              "When searching for Filip's personal thoughts, opinions, or reflections on a topic, "
              "search using first-person phrasing (e.g., 'my thoughts on X' rather than 'Filip\\'s thoughts on X'), "
              "as people write their personal notes in the first person. "
-             "Note search is powered by dense semantic vector embeddings. "
-             "Formulate queries as natural language descriptions, concepts, topics, or questions.",
+             "Prefer semantic_query as the default search tool for exploratory, conceptual, or topic queries, "
+             "as notes may be written in English or Czech or phrased in various ways. "
+             "Use list_notes when you need to list notes from specific dates or date ranges "
+             "(e.g., 'my thoughts from around May 9, 2022'), filter by specific tags, "
+             "match exact filenames or regex patterns, or page through notes chronologically/alphabetically.",
          implementation: Implementation(
            name: 'obsidian notes',
            version: '0.0.1',
@@ -182,7 +293,8 @@ final class ObsidianServer extends MCPServer
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     log(LoggingLevel.info, 'Initializing vault.');
     await _vault.initialize();
-    registerTool(queryTool, _query, validateArguments: true);
+    registerTool(semanticQueryTool, _semanticQuery, validateArguments: true);
+    registerTool(listNotesTool, _listNotes, validateArguments: true);
     registerTool(fetchTool, _fetch, validateArguments: true);
     return super.initialize(request);
   }
@@ -235,7 +347,7 @@ final class ObsidianServer extends MCPServer
     );
   }
 
-  Future<CallToolResult> _query(CallToolRequest request) async {
+  Future<CallToolResult> _semanticQuery(CallToolRequest request) async {
     final searchPhrase = request.arguments!['searchPhrase'] as String?;
 
     final createdAfterString = request.arguments!['createdAfter'] as String?;
@@ -296,6 +408,87 @@ final class ObsidianServer extends MCPServer
                 'createdAt': result.createdAt?.toIso8601String(),
                 'snippet': result.matchedText,
                 'score': result.score,
+              },
+          ],
+        },
+      );
+    } catch (e) {
+      return CallToolResult(
+        content: [TextContent(text: e.toString())],
+        isError: true,
+      );
+    }
+  }
+
+  Future<CallToolResult> _listNotes(CallToolRequest request) async {
+    final fromString = request.arguments?['from'] as String?;
+    final from = fromString != null
+        ? (DateTime.tryParse(fromString) ??
+            ObsidianNote.extractCreatedAtFromString(fromString))
+        : null;
+
+    final toString = request.arguments?['to'] as String?;
+    final to = toString != null
+        ? (DateTime.tryParse(toString) ??
+            ObsidianNote.extractCreatedAtFromString(toString))
+        : null;
+
+    final rawTags = request.arguments?['tags'];
+    final tags = rawTags is List
+        ? rawTags.map((e) => e.toString()).toList()
+        : null;
+
+    final pattern = request.arguments?['pattern'] as String?;
+    final isRegExp = request.arguments?['isRegExp'] as bool? ?? false;
+    final limit = request.arguments?['limit'] as int? ?? 20;
+    final offset = request.arguments?['offset'] as int? ?? 0;
+
+    final query = ObsidianListQuery(
+      from: from,
+      to: to,
+      tags: tags,
+      pattern: pattern,
+      isRegExp: isRegExp,
+      limit: limit,
+      offset: offset,
+    );
+
+    try {
+      final response = await _vault.listNotes(query);
+      return CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Listing notes produced '
+                '${response.totalResults} total matches; '
+                'returning ${response.returnedResults} '
+                '(offset ${response.offset}, hasMore: ${response.hasMore}, '
+                'sorted alphabetically by path). '
+                "Use the provided path with the fetch tool to get any note's full contents.",
+          ),
+          for (final (index, result) in response.results.indexed)
+            TextContent(
+              text:
+                  '- #${response.offset + index + 1}) path="${result.path}"\n'
+                  '  Title: ${result.title}\n'
+                  '  Created at: ${result.createdAt?.toIso8601String()}\n'
+                  '  Tags: ${result.tags.isEmpty ? "(none)" : result.tags.map((t) => "#$t").join(", ")}\n'
+                  '  Snippet: ${result.snippet}\n',
+            ),
+        ],
+        structuredContent: {
+          'totalResults': response.totalResults,
+          'returnedResults': response.returnedResults,
+          'offset': response.offset,
+          'hasMore': response.hasMore,
+          'results': [
+            for (final result in response.results)
+              {
+                'title': result.title,
+                'pathForFetch': result.path,
+                'createdAt': result.createdAt?.toIso8601String(),
+                'tags': result.tags,
+                'snippet': result.snippet,
               },
           ],
         },
